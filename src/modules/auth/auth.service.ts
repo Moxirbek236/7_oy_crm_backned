@@ -17,7 +17,7 @@ export class AuthService {
 
         if (currentUser.role === Role.STUDENT) {
             user = await this.prisma.student.findFirst({
-                where: { id: currentUser.id },
+                where: { id: currentUser.id, status: 'active' as any },
                 select: {
                     id: true,
                     full_name: true,
@@ -31,7 +31,7 @@ export class AuthService {
             })
         } else if (currentUser.role === Role.TEACHER) {
             user = await this.prisma.teacher.findFirst({
-                where: { id: currentUser.id },
+                where: { id: currentUser.id, status: 'active' as any },
                 select: {
                     id: true,
                     full_name: true,
@@ -42,9 +42,7 @@ export class AuthService {
                     created_at: true,
                     GroupTeacher: {
                         select: {
-                            Group: {
-                                select: { id: true, name: true }
-                            }
+                            Group: { select: { id: true, name: true } }
                         }
                     }
                 }
@@ -84,67 +82,58 @@ export class AuthService {
     }
 
     async userLogin(payload: LoginDto) {
+        const { identifier, password } = payload;
+        const q = identifier.trim();
 
-        console.log(payload);
-        
-        const existUser = await this.prisma.user.findUnique({
-            where: {
-                phone: payload.identifier
-            }
+        // Look up by phone or email across all three tables
+        const existUser = await this.prisma.user.findFirst({
+            where: { OR: [{ phone: q }, { email: q }] }
         })
 
-        if (!existUser) {
-            const existStudent = await this.prisma.student.findUnique({
-                where: {
-                    phone: payload.identifier
-                }
-            })
-            if (!existStudent) {
-                const existteacher = await this.prisma.teacher.findUnique({
-                    where: {
-                        phone: payload.identifier
-                    }
-                })
-
-                if(!existteacher){
-                    throw new UnauthorizedException("Invalid phone or password")
-                }
-
-                const isMatch = await bcrypt.compare(payload.password, existteacher.password)
-                if (!isMatch) {
-                    throw new UnauthorizedException("Invalid username or password")
-                }
-
-                return {
-                    success: true,
-                    message: "You're logged",
-                    accessToken: this.jwtService.sign({ id: existteacher.id, email: existteacher.email, role:Role.TEACHER })
-                }
-            }
-
-            const isMatch = await bcrypt.compare(payload.password, existStudent.password)
+        if (existUser) {
+            const isMatch = await bcrypt.compare(password, existUser.password)
             if (!isMatch) {
-                throw new UnauthorizedException("Invalid username or password")
+                throw new UnauthorizedException("Invalid phone or password")
             }
+            return {
+                success: true,
+                message: "You're logged",
+                accessToken: this.jwtService.sign({ id: existUser.id, email: existUser.email, role: existUser.role })
+            }
+        }
 
+        const existStudent = await this.prisma.student.findFirst({
+            where: { OR: [{ phone: q }, { email: q }] }
+        })
+
+        if (existStudent) {
+            const isMatch = await bcrypt.compare(password, existStudent.password)
+            if (!isMatch) {
+                throw new UnauthorizedException("Invalid phone or password")
+            }
             return {
                 success: true,
                 message: "You're logged",
                 accessToken: this.jwtService.sign({ id: existStudent.id, email: existStudent.email, role: Role.STUDENT })
             }
-
         }
 
-        const isMatch = await bcrypt.compare(payload.password, existUser.password)
-        if (!isMatch) {
-            throw new UnauthorizedException("Invalid username or password")
+        const existTeacher = await this.prisma.teacher.findFirst({
+            where: { OR: [{ phone: q }, { email: q }] }
+        })
+
+        if (existTeacher) {
+            const isMatch = await bcrypt.compare(password, existTeacher.password)
+            if (!isMatch) {
+                throw new UnauthorizedException("Invalid phone or password")
+            }
+            return {
+                success: true,
+                message: "You're logged",
+                accessToken: this.jwtService.sign({ id: existTeacher.id, email: existTeacher.email, role: Role.TEACHER })
+            }
         }
 
-        return {
-            success: true,
-            message: "You're logged",
-            accessToken: this.jwtService.sign({ id: existUser.id, email: existUser.email, role: existUser.role })
-        }
+        throw new UnauthorizedException("Invalid phone or password")
     }
-
 }

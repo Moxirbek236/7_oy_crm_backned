@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, UploadedFile, UseGuards, UseInterceptors, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, Req, UnsupportedMediaTypeException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Role, Status } from '@prisma/client';
 import { TeachersService } from './teachers.service';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/role.guard';
 import { Roles } from 'src/common/decorators/role';
@@ -26,7 +26,6 @@ export class TeachersController {
         @Query('page', new ParseIntPipe({ optional: true })) page?: number,
         @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     ) {
-
         return this.teacherService.getAllTeachers(search, page, limit)
     }
 
@@ -38,6 +37,17 @@ export class TeachersController {
     @Get('group/:groupId')
     getTeachersByGroup(@Param('groupId', ParseIntPipe) groupId: number) {
         return this.teacherService.getTeachersByGroup(groupId)
+    }
+
+    // renamed from getTeacherSingleById to avoid duplicate route with /:id
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get('single/:id')
+    getTeacherSingleById(@Param('id', ParseIntPipe) id: number) {
+        return this.teacherService.getTeacherById(id)
     }
 
     @ApiOperation({
@@ -73,9 +83,70 @@ export class TeachersController {
         return this.teacherService.deleteTeacher(id)
     }
 
+    // ---- New /teacher-specific endpoints ----
+
+    @ApiOperation({
+        summary: 'Get teacher coins',
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN, Role.TEACHER)
+    @Get(':id/coins')
+    getTeacherCoins(
+        @Param('id', ParseIntPipe) teacherId: number,
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+        @Query('month') month?: string,
+        @Query('sort') sort?: string,
+    ) {
+        return this.teacherService.getTeacherCoins(teacherId, page, limit, month, sort)
+    }
+
+    @ApiOperation({
+        summary: 'Get teacher profile (authenticated teacher)',
+    })
+    @UseGuards(AuthGuard)
+    @Get('profile')
+    getTeacherProfile(@Req() req: any) {
+        return this.teacherService.getTeacherProfile(req.user.id)
+    }
+
+    @ApiOperation({
+        summary: 'Get teacher info',
+    })
+    @UseGuards(AuthGuard)
+    @Get('info')
+    getTeacherInfo(@Req() req: any) {
+        return this.teacherService.getTeacherInfo(req.user.id)
+    }
+
     @ApiOperation({
         summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-        description: "Bu endpointga admin va superadmin huquqi bor"
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get('history')
+    getArchivedTeachers(
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    ) {
+        return this.teacherService.getArchivedTeachers(page, limit)
+    }
+
+    @ApiOperation({
+        summary: 'Update teacher status (activate / archive)',
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Patch('status/:id')
+    updateTeacherStatus(
+        @Param('id', ParseIntPipe) id: number,
+        @Query('status') status: string,
+    ) {
+        return this.teacherService.updateTeacherStatus(id, status)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
     })
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.SUPERADMIN, Role.ADMIN)
@@ -90,6 +161,7 @@ export class TeachersController {
                 phone: { type: 'string' },
                 photo: { type: 'string', format: 'binary' },
                 address: { type: "string" },
+                birth_date: { type: 'string', format: 'date' },
                 groups: { type: 'array', items: { type: 'number' }, example: [1, 2, 3] }
             }
         }
@@ -106,7 +178,7 @@ export class TeachersController {
     @Post()
     createTeacher(
         @Body() payload: CreateTeacherDto,
-        @UploadedFile() file: Express.Multer.File
+        @UploadedFile() file?: Express.Multer.File
     ) {
         return this.teacherService.createTeacher(payload, file?.filename)
     }

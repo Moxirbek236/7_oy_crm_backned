@@ -22,6 +22,7 @@ export class TeachersService {
                 photo: true,
                 email: true,
                 address: true,
+                birth_date: true,
                 created_at: true,
                 GroupTeacher: {
                     select: {
@@ -47,6 +48,119 @@ export class TeachersService {
                 groups: teacher.GroupTeacher.map(gt => gt.Group)
             }
         }
+    }
+
+    async getTeacherCoins(teacherId: number, page?: number, limit?: number, month?: string, sort?: string) {
+        page = page && page > 0 ? page : 1;
+        limit = limit && limit > 0 ? limit : 10;
+
+        const where: any = { teacher_id: teacherId };
+        if (month) {
+            const [year, m] = month.split("-");
+            where.created_at = {
+                gte: new Date(`${year}-${m}-01`),
+                lt: new Date(`${year}-${Number(m) + 1}-01`)
+            };
+        }
+        if (sort === "ASC") where.orderBy = { count: "asc" };
+        else if (sort === "DESC") where.orderBy = { count: "desc" };
+
+        const coins = await this.prisma.$queryRaw`
+            SELECT a.id::text as id, a.count, a.created_at, s.id as student_id, s.full_name as student_name, s.photo as student_photo
+            FROM "Attendances" a
+            LEFT JOIN "Students" s ON s.id = a."student_id"
+            WHERE a."teacher_id" = ${teacherId}
+            ORDER BY a.created_at DESC
+            LIMIT ${limit} OFFSET ${(page - 1) * limit}
+        `;
+
+        const total = await this.prisma.attendance.count({ where });
+
+        return {
+            success: true,
+            data: coins as any[],
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
+    }
+
+    async getTeacherProfile(id: number) {
+        const teacher = await this.prisma.teacher.findFirst({
+            where: { id, status: Status.active },
+            select: {
+                id: true,
+                full_name: true,
+                phone: true,
+                photo: true,
+                email: true,
+                address: true,
+                birth_date: true,
+                created_at: true,
+                GroupTeacher: {
+                    select: {
+                        Group: { select: { id: true, name: true } }
+                    }
+                }
+            }
+        });
+        if (!teacher) throw new NotFoundException("Teacher not found");
+        return { success: true, data: { ...teacher, groups: teacher.GroupTeacher.map(gt => gt.Group) } };
+    }
+
+    async getTeacherInfo(id: number) {
+        return this.getTeacherProfile(id);
+    }
+
+    async getArchivedTeachers(page: number = 1, limit: number = 10) {
+        page = page && page > 0 ? page : 1;
+        limit = limit && limit > 0 ? limit : 10;
+
+        const total = await this.prisma.teacher.count({ where: { status: Status.inactive } });
+
+        const teachers = await this.prisma.teacher.findMany({
+            where: { status: Status.inactive },
+            select: {
+                id: true,
+                full_name: true,
+                phone: true,
+                photo: true,
+                email: true,
+                address: true,
+                created_at: true,
+                update_at: true,
+                GroupTeacher: {
+                    select: { Group: { select: { name: true } } }
+                }
+            },
+            skip: (page - 1) * limit,
+            take: limit,
+        });
+
+        const formatted = teachers.map(el => ({
+            ...el,
+            groups: el.GroupTeacher.map(gt => gt.Group.name)
+        }));
+
+        return {
+            success: true,
+            data: formatted,
+            meta: { total, totalPages: Math.ceil(total / limit) }
+        };
+    }
+
+    async updateTeacherStatus(id: number, status: string) {
+        const existTeacher = await this.prisma.teacher.findFirst({
+            where: { id, status: Status.active }
+        });
+        if (!existTeacher) throw new NotFoundException("Teacher not found");
+
+        await this.prisma.teacher.update({
+            where: { id },
+            data: { status: status === "ACTIVE" ? Status.active : Status.inactive, update_at: new Date() }
+        });
+        return { success: true, message: "Teacher status updated" };
     }
 
     async getTeachersByGroup(groupId: number) {
@@ -80,6 +194,15 @@ export class TeachersService {
 
         const where: any = { status: Status.active };
 
+        if (search && search.trim().length > 0) {
+            const q = search.trim();
+            where.OR = [
+                { full_name: { contains: q, mode: 'insensitive' } },
+                { phone: { contains: q } },
+                { email: { contains: q, mode: 'insensitive' } },
+            ];
+        }
+
         const teachers = await this.prisma.teacher.findMany({
             where,
             select: {
@@ -89,6 +212,7 @@ export class TeachersService {
                 photo: true,
                 email: true,
                 address: true,
+                birth_date: true,
                 created_at: true,
                 GroupTeacher: {
                     select: {

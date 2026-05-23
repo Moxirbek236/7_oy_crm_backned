@@ -85,6 +85,7 @@ export class GroupsService {
                     select: {
                         id: true,
                         name: true,
+                        duration_hours: true,
                         duration_month: true
                     }
                 },
@@ -122,12 +123,16 @@ export class GroupsService {
         const dataFormatter = groups.map((el) => ({
             id: el.id,
             name: el.name,
-            start_date: el.start_date,
+            startDate: el.start_date.toISOString(),
             start_time: el.start_time,
+            endDate: el.start_date instanceof Date
+                ? new Date(el.start_date.getTime() + (el.courses.duration_month || 0) * 30 * 24 * 60 * 60 * 1000).toISOString()
+                : (el.start_date as any),
             days: el.week_day,
             course: {
                 name: el.courses.name,
                 duration_month: el.courses.duration_month,
+                duration_hours: el.courses.duration_hours,
             },
             room: el.rooms.name,
             teachers: el.GroupTeacher.map(gt => ({
@@ -259,7 +264,7 @@ export class GroupsService {
                 course: {
                     id: existGroup.courses.id,
                     name: existGroup.courses.name,
-                    durationMinut: existGroup.courses.duration_month,
+                    duration_month: existGroup.courses.duration_month,
                 },
                 course_id: existGroup.course_id,
                 room: {

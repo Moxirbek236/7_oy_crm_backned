@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, Req, UnsupportedMediaTypeException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
-import { Role, StudentStatus } from '@prisma/client';
+import { Role, StudentStatus, Status } from '@prisma/client';
 import { StudentsService } from './students.service';
 import { AuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/role.guard';
@@ -161,7 +161,55 @@ export class StudentsController {
         @Req() req : Request,
         @UploadedFile() file?: Express.Multer.File,  
     ) { 
-        console.log(payload,homeworkId,"controller",file)
         return this.studentService.createHomeworkAnswer(homeworkId,req['user'],payload,file?.filename)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Post("freeze/:id")
+    freezStudent(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() payload: { groupId: number; startDate: string; endDate: string; reasonId: number },
+    ) {
+        return this.studentService.freezStudent(id, payload)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Post("activate/:id")
+    unfreezStudent(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() payload: { groupId: number },
+    ) {
+        return this.studentService.unfreezStudent(id, payload.groupId)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get("archive-history")
+    getArchivedStudents(
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    ) {
+        return this.studentService.getArchivedStudents(page, limit)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get("status-history/:studentId")
+    getStudentStatusHandling(@Param('studentId', ParseIntPipe) studentId: number) {
+        return this.studentService.getStudentStatusHistory(studentId)
     }
 }

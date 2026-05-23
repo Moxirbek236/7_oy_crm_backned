@@ -10,8 +10,6 @@ export class AuthController {
 
     @Post("login")
     userLogin(@Body() payload: LoginDto) {
-        console.log(payload);
-        
         return this.authService.userLogin(payload)
     }
 
@@ -21,7 +19,7 @@ export class AuthController {
     })
     @UseGuards(AuthGuard)
     @Get("profile")
-    getProfile(@Req() req: Request) {
+    getProfile(@Req() req: any) {
         return this.authService.getProfile(req['user'])
     }
 }

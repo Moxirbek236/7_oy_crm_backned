@@ -89,8 +89,10 @@ export class StudentsService {
             where: { id },
             data: {
                 ...studentData,
-                photo: existStudent.photo,
-                update_at: new Date()
+                update_at: new Date(),
+                studentGroups: groups?.length
+                    ? { deleteMany: {}, create: groups.map(gId => ({ group_id: gId })) }
+                    : { deleteMany: {} }
             }
         })
 
@@ -144,6 +146,108 @@ export class StudentsService {
         return {
             success : true,
             data: myGroups.map(el => el.groups)
+        }
+    }
+
+    async freezStudent(id: number, payload: { groupId: number; startDate: string; endDate: string; reasonId: number }) {
+        const existStudent = await this.prisma.student.findFirst({
+            where: { id, status: Status.active }
+        })
+        if (!existStudent) throw new NotFoundException("Student not found")
+
+        await this.prisma.student.update({
+            where: { id },
+            data: {
+                status: StudentStatus.freeze,
+                update_at: new Date()
+            }
+        })
+
+        return { success: true, message: "Student frozen" }
+    }
+
+    async unfreezStudent(id: number, groupId: number) {
+        const existStudent = await this.prisma.student.findFirst({
+            where: { id }
+        })
+        if (!existStudent) throw new NotFoundException("Student not found")
+
+        await this.prisma.student.update({
+            where: { id },
+            data: {
+                status: StudentStatus.active,
+                update_at: new Date()
+            }
+        })
+
+        return { success: true, message: "Student unfrozen" }
+    }
+
+    async getArchivedStudents(page?: number, limit?: number) {
+        page = page && page > 0 ? page : 1;
+        limit = limit && limit > 0 ? limit : 10;
+
+        const total = await this.prisma.student.count({ where: { status: StudentStatus.inactive } })
+
+        const archived = await this.prisma.student.findMany({
+            where: { status: StudentStatus.inactive },
+            select: {
+                id: true,
+                full_name: true,
+                phone: true,
+                photo: true,
+                email: true,
+                address: true,
+                birth_date: true,
+                created_at: true,
+                update_at: true,
+                studentGroups: {
+                    select: {
+                        groups: { select: { id: true, name: true } }
+                    }
+                }
+            },
+            skip: (page - 1) * limit,
+            take: limit,
+        })
+
+        const formatted = archived.map(s => ({
+            id: s.id,
+            full_name: s.full_name,
+            phone: s.phone,
+            photo: s.photo,
+            email: s.email,
+            address: s.address,
+            birth_date: s.birth_date,
+            created_at: s.created_at,
+            groups: s.studentGroups.map(sg => sg.groups)
+        }))
+
+        return {
+            success: true,
+            data: formatted,
+            total,
+            totalPages: Math.ceil(total / limit)
+        }
+    }
+
+    async getStudentStatusHistory(studentId: number) {
+        const student = await this.prisma.student.findFirst({
+            where: { id: studentId },
+            select: { id: true, full_name: true, status: true, created_at: true, update_at: true }
+        })
+        if (!student) throw new NotFoundException("Student not found")
+
+        return {
+            success: true,
+            data: [{
+                id: String(student.id),
+                full_name: student.full_name,
+                status: student.status,
+                reason: "—",
+                by: "system",
+                date: student.update_at?.toISOString() || student.created_at.toISOString()
+            }]
         }
     }
 
