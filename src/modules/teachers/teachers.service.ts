@@ -22,7 +22,6 @@ export class TeachersService {
                 photo: true,
                 email: true,
                 address: true,
-                birth_date: true,
                 created_at: true,
                 GroupTeacher: {
                     select: {
@@ -96,7 +95,6 @@ export class TeachersService {
                 photo: true,
                 email: true,
                 address: true,
-                birth_date: true,
                 created_at: true,
                 GroupTeacher: {
                     select: {
@@ -212,7 +210,6 @@ export class TeachersService {
                 photo: true,
                 email: true,
                 address: true,
-                birth_date: true,
                 created_at: true,
                 GroupTeacher: {
                     select: {
@@ -227,6 +224,7 @@ export class TeachersService {
             skip: (page - 1) * limit,
             take: limit,
         })
+
 
         const dataFormatter = teachers.map(el => ({
             ...el,

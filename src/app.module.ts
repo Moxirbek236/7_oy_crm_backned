@@ -18,6 +18,7 @@ import { HomeworkModule } from './modules/homework/homework.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SeedModule } from './common/seeder/seed.module';
 import { OwnershipGuard } from './common/guards/ownership.guard';
+import { HealthModule } from './common/health/health.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { OwnershipGuard } from './common/guards/ownership.guard';
     AttendanceModule,
     HomeworkModule,
     DashboardModule,
-    SeedModule
+    SeedModule,
+    HealthModule,
   ],
   providers: [
     {
