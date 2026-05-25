@@ -17,6 +17,8 @@ import { CreateHomeworkAnswerDto } from './dto/create.homework.dto';
 export class StudentsController {
     constructor(private readonly studentService: StudentsService) { }
 
+    // ---- Specific named routes (must come BEFORE generic :id routes) ----
+
     @ApiOperation({
         summary: `${Role.STUDENT}`,
     })
@@ -32,21 +34,26 @@ export class StudentsController {
     })
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get()
-    getAllStudents(
-        @Query() pagination : PaginationDto
+    @Get("archive-history")
+    getArchivedStudents(
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     ) {
-        return this.studentService.getAllStudents(pagination)
+        return this.studentService.getArchivedStudents(page, limit)
     }
+
+    // ---- Generic routes ----
 
     @ApiOperation({
         summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
     })
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get(':id')
-    getStudentById(@Param('id', ParseIntPipe) id: number) {
-        return this.studentService.getStudentById(id)
+    @Get()
+    getAllStudents(
+        @Query() pagination : PaginationDto
+    ) {
+        return this.studentService.getAllStudents(pagination)
     }
 
     @ApiOperation({
@@ -56,6 +63,16 @@ export class StudentsController {
     @Roles(Role.SUPERADMIN, Role.ADMIN)
     @Get('single/:id')
     getStudentSingleById(@Param('id', ParseIntPipe) id: number) {
+        return this.studentService.getStudentById(id)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get(':id')
+    getStudentById(@Param('id', ParseIntPipe) id: number) {
         return this.studentService.getStudentById(id)
     }
 
@@ -188,19 +205,6 @@ export class StudentsController {
         @Body() payload: { groupId: number },
     ) {
         return this.studentService.unfreezStudent(id, payload.groupId)
-    }
-
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get("archive-history")
-    getArchivedStudents(
-        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-    ) {
-        return this.studentService.getArchivedStudents(page, limit)
     }
 
     @ApiOperation({

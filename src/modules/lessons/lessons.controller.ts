@@ -27,6 +27,30 @@ export class LessonsController {
     }
 
     @ApiOperation({
+        summary: `${Role.ADMIN}, ${Role.TEACHER}, ${Role.SUPERADMIN} - Get lesson attendance`
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN, Role.TEACHER, Role.SUPERADMIN)
+    @Get(':id/attendance')
+    getLessonAttendance(@Param('id', ParseIntPipe) lessonId: number) {
+        return this.lessonService.getLessonAttendance(lessonId)
+    }
+
+    @ApiOperation({
+        summary: `${Role.ADMIN}, ${Role.TEACHER}, ${Role.SUPERADMIN} - Mark student attendance`
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN, Role.TEACHER, Role.SUPERADMIN)
+    @Post(':id/attendance')
+    markAttendance(
+        @Param('id', ParseIntPipe) lessonId: number,
+        @Body() payload: { studentId: number; status: string },
+        @Req() req: Request
+    ) {
+        return this.lessonService.markAttendance(lessonId, payload, req['user'])
+    }
+
+    @ApiOperation({
         summary: `${Role.ADMIN}`
     })
     @UseGuards(AuthGuard, RolesGuard)

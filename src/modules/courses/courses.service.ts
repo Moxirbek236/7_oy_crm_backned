@@ -46,13 +46,13 @@ export class CoursesService {
             throw new ConflictException("Course already exists")
         }
 
-        await this.prisma.course.create({
+        const course = await this.prisma.course.create({
             data: payload
         })
 
         return {
             success: true,
-            message: "Course created"
+            data: course
         }
     }
 

@@ -15,91 +15,7 @@ import { UpdateTeacherDto } from './dto/update.dto';
 export class TeachersController {
     constructor(private readonly teacherService: TeachersService) { }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get()
-    getAllTeachers(
-        @Query('search') search?: string,
-        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-    ) {
-        return this.teacherService.getAllTeachers(search, page, limit)
-    }
-
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get('group/:groupId')
-    getTeachersByGroup(@Param('groupId', ParseIntPipe) groupId: number) {
-        return this.teacherService.getTeachersByGroup(groupId)
-    }
-
-    // renamed from getTeacherSingleById to avoid duplicate route with /:id
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get('single/:id')
-    getTeacherSingleById(@Param('id', ParseIntPipe) id: number) {
-        return this.teacherService.getTeacherById(id)
-    }
-
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get(':id')
-    getTeacherById(@Param('id', ParseIntPipe) id: number) {
-        return this.teacherService.getTeacherById(id)
-    }
-
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Put(':id')
-    updateTeacher(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() payload: UpdateTeacherDto
-    ) {
-        return this.teacherService.updateTeacher(id, payload)
-    }
-
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Delete(':id')
-    deleteTeacher(@Param('id', ParseIntPipe) id: number) {
-        return this.teacherService.deleteTeacher(id)
-    }
-
-    // ---- New /teacher-specific endpoints ----
-
-    @ApiOperation({
-        summary: 'Get teacher coins',
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN, Role.TEACHER)
-    @Get(':id/coins')
-    getTeacherCoins(
-        @Param('id', ParseIntPipe) teacherId: number,
-        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-        @Query('month') month?: string,
-        @Query('sort') sort?: string,
-    ) {
-        return this.teacherService.getTeacherCoins(teacherId, page, limit, month, sort)
-    }
+    // ---- Specific named routes (must come BEFORE generic :id routes) ----
 
     @ApiOperation({
         summary: 'Get teacher profile (authenticated teacher)',
@@ -143,6 +59,92 @@ export class TeachersController {
         @Query('status') status: string,
     ) {
         return this.teacherService.updateTeacherStatus(id, status)
+    }
+
+    // ---- Generic routes ----
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get()
+    getAllTeachers(
+        @Query('search') search?: string,
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    ) {
+        return this.teacherService.getAllTeachers(search, page, limit)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get('group/:groupId')
+    getTeachersByGroup(@Param('groupId', ParseIntPipe) groupId: number) {
+        return this.teacherService.getTeachersByGroup(groupId)
+    }
+
+    // renamed from getTeacherSingleById to avoid duplicate route with /:id
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get('single/:id')
+    getTeacherSingleById(@Param('id', ParseIntPipe) id: number) {
+        return this.teacherService.getTeacherById(id)
+    }
+
+    @ApiOperation({
+        summary: 'Get teacher coins',
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN, Role.TEACHER)
+    @Get(':id/coins')
+    getTeacherCoins(
+        @Param('id', ParseIntPipe) teacherId: number,
+        @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+        @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+        @Query('month') month?: string,
+        @Query('sort') sort?: string,
+    ) {
+        return this.teacherService.getTeacherCoins(teacherId, page, limit, month, sort)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Get(':id')
+    getTeacherById(@Param('id', ParseIntPipe) id: number) {
+        return this.teacherService.getTeacherById(id)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Put(':id')
+    updateTeacher(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() payload: UpdateTeacherDto
+    ) {
+        return this.teacherService.updateTeacher(id, payload)
+    }
+
+    @ApiOperation({
+        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`,
+    })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.SUPERADMIN, Role.ADMIN)
+    @Delete(':id')
+    deleteTeacher(@Param('id', ParseIntPipe) id: number) {
+        return this.teacherService.deleteTeacher(id)
     }
 
     @ApiOperation({
