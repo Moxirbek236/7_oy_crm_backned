@@ -28,7 +28,32 @@ export class TeachersService {
                         Group: {
                             select: {
                                 id: true,
-                                name: true
+                                name: true,
+                                max_student: true,
+                                start_date: true,
+                                start_time: true,
+                                week_day: true,
+                                courses: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        duration_hours: true,
+                                        duration_month: true
+                                    }
+                                },
+                                rooms: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                },
+                                studentGroups: {
+                                    select: {
+                                        students: {
+                                            select: { id: true }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -44,7 +69,18 @@ export class TeachersService {
             success: true,
             data: {
                 ...teacher,
-                groups: teacher.GroupTeacher.map(gt => gt.Group)
+                fullname: teacher.full_name,
+                groups: teacher.GroupTeacher.map(gt => ({
+                    id: gt.Group.id,
+                    name: gt.Group.name,
+                    studentCount: gt.Group.studentGroups.length,
+                    max_student: gt.Group.max_student,
+                    start_date: gt.Group.start_date,
+                    start_time: gt.Group.start_time,
+                    week_day: gt.Group.week_day,
+                    course: gt.Group.courses,
+                    room: gt.Group.rooms
+                }))
             }
         }
     }
@@ -98,13 +134,33 @@ export class TeachersService {
                 created_at: true,
                 GroupTeacher: {
                     select: {
-                        Group: { select: { id: true, name: true } }
+                        Group: {
+                            select: {
+                                id: true,
+                                name: true,
+                                studentGroups: {
+                                    select: {
+                                        students: { select: { id: true } }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         });
         if (!teacher) throw new NotFoundException("Teacher not found");
-        return { success: true, data: { ...teacher, groups: teacher.GroupTeacher.map(gt => gt.Group) } };
+        return {
+            success: true,
+            data: {
+                ...teacher,
+                groups: teacher.GroupTeacher.map(gt => ({
+                    id: gt.Group.id,
+                    name: gt.Group.name,
+                    studentCount: gt.Group.studentGroups.length
+                }))
+            }
+        };
     }
 
     async getTeacherInfo(id: number) {
