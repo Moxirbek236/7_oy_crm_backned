@@ -1,11 +1,12 @@
-import { Module } from '@nestjs/common';
-import { GroupsController } from './groups.controller';
-import { GroupsService } from './groups.service';
-import { StudentGroupController } from './student-group/student-group.controller';
-import { StudentGroupService } from './student-group/student-group.service';
+import { Module } from "@nestjs/common";
+import { GroupsService } from "./groups.service";
+import { GroupsController } from "./groups.controller";
+import { StudentGroupController } from "./student_group/student_group.controller";
+import { StudentGroupService } from "./student_group/student_group.service";
 
 @Module({
   controllers: [GroupsController, StudentGroupController],
-  providers: [GroupsService, StudentGroupService]
+  providers: [GroupsService, StudentGroupService],
+  imports: [],
 })
 export class GroupsModule {}

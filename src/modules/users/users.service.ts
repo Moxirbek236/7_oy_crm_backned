@@ -1,162 +1,194 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'src/core/database/prisma.service';
-import { CreateAdminDto } from './dto/create.admin.dto';
-import * as bcrypt from "bcrypt"
-import { Role, Status } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
+import { PrismaService } from "src/core/database/prisma.service";
+import { Status, UserRole } from "@prisma/client";
+import * as bcrypt from "bcrypt";
+import { EmailService } from "src/common/email/email.service";
+import { FindAllUsersDto } from "./dto/query.dto";
 
 @Injectable()
 export class UsersService {
-    constructor(private prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
+  async create(payload: CreateUserDto) {
+    const admin = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          {
+            email: payload.email,
+          },
+          {
+            phone: payload.phone,
+          },
+        ],
+      },
+    });
 
-    async getAllAdmins() {
-        const admins = await this.prisma.user.findMany({
-            where: {
-                status: Status.active,
-                role: Role.ADMIN
-            },
-            select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-                email: true,
-                phone: true,
-                photo: true,
-                role: true,
-            }
-        })
-
-        return {
-            success: true,
-            data: admins
-        }
+    if (admin) {
+      throw new ConflictException("User already exists");
     }
 
-    async getAdminById(id: number) {
-        const admin = await this.prisma.user.findFirst({
-            where: {
-                id,
-                status: Status.active,
-                role: Role.ADMIN
-            },
-            select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-                email: true,
-                phone: true,
-                photo: true,
-                role: true,
-            }
-        })
+    const hashPass = await bcrypt.hash(payload.password, 10);
 
-        if (!admin) {
-            throw new NotFoundException("Admin not found with this id")
-        }
+    await this.prisma.user.create({
+      data: {
+        ...payload,
+        role: UserRole.ADMIN,
+        password: hashPass,
+      },
+    });
 
-        return {
-            success: true,
-            data: admin
-        }
+    await this.emailService.sendEmail(
+      payload.email,
+      payload.phone,
+      payload.password,
+    );
+
+    return {
+      success: true,
+      message: "User created successfully",
+    };
+  }
+
+  async findAll(query: FindAllUsersDto) {
+    const where: any = {};
+
+    if (query.status) {
+      where.status = query.status;
     }
 
-    async updateAdmin(id: number, payload: Partial<CreateAdminDto>) {
-        const admin = await this.prisma.user.findFirst({
-            where: {
-                id,
-                status: Status.active,
-                role: Role.ADMIN
-            }
-        })
-
-        if (!admin) {
-            throw new NotFoundException("Admin not found with this id")
-        }
-
-        if (payload.phone || payload.email) {
-            const duplicate = await this.prisma.user.findFirst({
-                where: {
-                    OR: [
-                        payload.phone ? { phone: payload.phone } : {},
-                        payload.email ? { email: payload.email } : {}
-                    ].filter(o => Object.keys(o).length > 0),
-                    id: { not: id }
-                }
-            })
-            if (duplicate) {
-                throw new ConflictException("Phone or email already exists")
-            }
-        }
-
-        const data: any = { ...payload, update_at: new Date() }
-        if (payload.password) {
-            data.password = await bcrypt.hash(payload.password, 10)
-        }
-
-        await this.prisma.user.update({
-            where: { id },
-            data
-        })
-
-        return {
-            success: true,
-            message: "Admin updated successfully"
-        }
+    // Search across fields
+    if (query.search) {
+      where.OR = [
+        { full_name: { contains: query.search, mode: "insensitive" } },
+        { email: { contains: query.search, mode: "insensitive" } },
+        { phone: { contains: query.search, mode: "insensitive" } },
+        { role: { contains: query.search, mode: "insensitive" } },
+      ];
+    } else {
+      if (query.first_name) {
+        where.full_name = { contains: query.first_name, mode: "insensitive" };
+      }
+      if (query.email) {
+        where.email = { contains: query.email, mode: "insensitive" };
+      }
+      if (query.phone) {
+        where.phone = { contains: query.phone, mode: "insensitive" };
+      }
     }
 
-    async deleteAdmin(id: number) {
-        const admin = await this.prisma.user.findFirst({
-            where: {
-                id,
-                status: Status.active,
-                role: Role.ADMIN
-            }
-        })
-
-        if (!admin) {
-            throw new NotFoundException("Admin not found with this id")
-        }
-
-        await this.prisma.user.update({
-            where: { id },
-            data: {
-                status: Status.inactive,
-                update_at: new Date()
-            }
-        })
-
-        return {
-            success: true,
-            message: "Admin deleted successfully"
-        }
+    if (query.address) {
+      where.address = { contains: query.address, mode: "insensitive" };
     }
 
-    async createAdmin(payload: CreateAdminDto) {
-        const adminExists = await this.prisma.user.findFirst({
-            where: {
-                OR: [
-                    { phone: payload.phone },
-                    { email: payload.email }
-                ]
+    // Pagination
+    const page = query.page || 1;
+    const limit = query.limit || 1000;
+    const skip = (page - 1) * limit;
 
-            }
-        })
+    // Sorting
+    const orderBy: any = {};
+    const sortField = query.sort_by || 'id';
+    const sortOrder = query.sort_order || 'asc';
+    orderBy[sortField] = sortOrder;
 
-        if (adminExists) throw new ConflictException()
+    // Total count
+    const total = await this.prisma.user.count({ where });
 
-        const hashPass = await bcrypt.hash(payload.password, 10)
+    const users = await this.prisma.user.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        full_name: true,
+        email: true,
+        phone: true,
+        address: true,
+        role: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
 
-        await this.prisma.user.create({
-            data: {
-                ...payload,
-                role: Role.ADMIN,
-                password: hashPass
-            }
-        })
+    const totalPages = Math.ceil(total / limit);
 
-        return {
-            success: true,
-            message: "create admin successfully"
-        }
+    return {
+      success: true,
+      data: users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async findOne(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        full_name: true,
+        email: true,
+        phone: true,
+        address: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException("User not found");
     }
+    return {
+      success: true,
+      data: user,
+    };
+  }
 
+  async update(id: number, payload: UpdateUserDto) {
+    const data: any = {
+      ...payload,
+      role: UserRole.ADMIN,
+    };
+    if (payload.password) {
+      data.password = await bcrypt.hash(payload.password, 10);
+    }
+    await this.prisma.user.update({
+      where: { id },
+      data,
+    });
+    return {
+      success: true,
+      message: "User updated successfully",
+    };
+  }
+
+  async delete(id: number) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        status: Status.inactive,
+      },
+    });
+    return {
+      success: true,
+      message: "User deleted successfully",
+    };
+  }
 }

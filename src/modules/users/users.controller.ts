@@ -1,67 +1,67 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, UseGuards } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CreateAdminDto } from './dto/create.admin.dto';
-import { AuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { Roles } from 'src/common/decorators/role';
-import { Role } from '@prisma/client';
-import { RolesGuard } from 'src/common/guards/role.guard';
-import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Put,
+  UseGuards,
+  Query,
+} from "@nestjs/common";
+import { UsersService } from "./users.service";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
+import { TokenGuard } from "src/common/guards/token.guards";
+import { ApiBearerAuth, ApiConsumes, ApiOperation } from "@nestjs/swagger";
+import { RolesGuard } from "src/common/guards/role.guards";
+import { Roles } from "src/common/decorators/roles";
+import { UserRole } from "@prisma/client";
+import { FindAllUsersDto } from "./dto/query.dto";
 
+@Controller("users")
+@UseGuards(TokenGuard, RolesGuard)
 @ApiBearerAuth()
-@Controller('users')
 export class UsersController {
-    constructor(private readonly userService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN)
-    @Get('admin/all')
-    getAllAdmins() {
-        return this.userService.getAllAdmins()
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Post("admin")
+  create(@Body() payload: CreateUserDto) {
+    return this.usersService.create(payload);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN)
-    @Get('admin/:id')
-    getAdminById(@Param('id', ParseIntPipe) id: number) {
-        return this.userService.getAdminById(id)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get("all")
+  findAll(@Query() query: FindAllUsersDto) {
+    return this.usersService.findAll(query);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN)
-    @Put('admin/:id')
-    updateAdmin(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() payload: CreateAdminDto
-    ) {
-        return this.userService.updateAdmin(id, payload)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
+    return this.usersService.findOne(id);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN)
-    @Delete('admin/:id')
-    deleteAdmin(@Param('id', ParseIntPipe) id: number) {
-        return this.userService.deleteAdmin(id)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Put(":id")
+  update(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() payload: UpdateUserDto,
+  ) {
+    return this.usersService.update(id, payload);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`
-    })
-    @UseGuards(AuthGuard)
-    @Roles(Role.ADMIN, Role.SUPERADMIN)
-    @Post("admin")
-    createAdmin(@Body() payload: CreateAdminDto) {
-        return this.userService.createAdmin(payload)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Delete(":id")
+  delete(@Param("id", ParseIntPipe) id: number) {
+    return this.usersService.delete(id);
+  }
 }

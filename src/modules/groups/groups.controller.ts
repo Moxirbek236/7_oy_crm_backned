@@ -1,103 +1,80 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { GroupsService } from './groups.service';
-import { CreateGroupDto } from './dto/create.dto';
-import { CreateLessonDto } from './dto/create-lesson.dto';
-import { AuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/role.guard';
-import { Roles } from 'src/common/decorators/role';
-import { Role } from '@prisma/client';
-import { ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { filterDto } from './dto/search';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Put,
+  ParseIntPipe,
+  UseGuards,
+  Query,
+} from "@nestjs/common";
+import { GroupsService } from "./groups.service";
+import { CreateGroupDto } from "./dto/create-group.dto";
+import { UpdateGroupDto } from "./dto/update-group.dto";
+import { TokenGuard } from "src/common/guards/token.guards";
+import { RolesGuard } from "src/common/guards/role.guards";
+import { ApiBearerAuth, ApiConsumes, ApiOperation } from "@nestjs/swagger";
+import { Roles } from "src/common/decorators/roles";
+import { UserRole } from "@prisma/client";
+import { FindAllGroupsDto } from "./dto/query.dto";
 
+@Controller("groups")
+@UseGuards(TokenGuard, RolesGuard)
 @ApiBearerAuth()
-@Controller('groups')
 export class GroupsController {
-    constructor(private readonly groupService: GroupsService) { }
+  constructor(private readonly groupsService: GroupsService) {}
 
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get("one/students/:groupId")
-    getGroupOne(@Param("groupId", ParseIntPipe) groupId: number) {
-        return this.groupService.getGroupOne(groupId)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Post()
+  create(@Body() payload: CreateGroupDto) {
+    return this.groupsService.create(payload);
+  }
 
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get("all")
-    getAllGroups(@Query() search: filterDto) {
-        return this.groupService.getAllGroups(search)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get()
+  findAll(@Query() query: FindAllGroupsDto) {
+    return this.groupsService.findAll(query);
+  }
 
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get('report')
-    getGroupReport(@Query('branchId', new ParseIntPipe({ optional: true })) branchId?: number) {
-        return this.groupService.getGroupReport(branchId)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get("stats")
+  getStats() {
+    return this.groupsService.getStats();
+  }
 
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Post()
-    createGroup(@Body() payload: CreateGroupDto) {
-        return this.groupService.createGroup(payload)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
+    return this.groupsService.findOne(id);
+  }
 
-    @Get(":groupId/schedules")
-    getSchedules(@Param("groupId", ParseIntPipe) groupId: number) {
-        return this.groupService.getSchedules(groupId)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get(":id/schedule")
+  getSchedule(@Param("id", ParseIntPipe) id: number) {
+    return this.groupsService.getSchedule(id);
+  }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Put(":id")
+  update(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() payload: UpdateGroupDto,
+  ) {
+    return this.groupsService.update(id, payload);
+  }
 
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}, ${Role.TEACHER}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN, Role.TEACHER)
-    @Post(":groupId/lesson")
-    createLesson(
-        @Param("groupId", ParseIntPipe) groupId: number,
-        @Body() payload: CreateLessonDto
-    ) {
-        return this.groupService.createLesson(groupId, payload)
-    }
-
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}, ${Role.TEACHER}` })
-    @ApiQuery({ name: 'date', required: true, example: '2026-05-12' })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN, Role.TEACHER)
-    @Get(":groupId/lesson")
-    getLessonByDate(
-        @Param("groupId", ParseIntPipe) groupId: number,
-        @Query("date") date: string
-    ) {
-        return this.groupService.getLessonByDate(groupId, date)
-    }
-
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}, ${Role.TEACHER}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN, Role.TEACHER)
-    @Get(":groupId")
-    getGroupById(@Param("groupId", ParseIntPipe) groupId: number) {
-        return this.groupService.getGroupById(groupId)
-    }
-
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Put(":groupId")
-    updateGroup(
-        @Param("groupId", ParseIntPipe) groupId: number,
-        @Body() payload: CreateGroupDto
-    ) {
-        return this.groupService.updateGroup(groupId, payload)
-    }
-
-    @ApiOperation({ summary: `${Role.SUPERADMIN}, ${Role.ADMIN}` })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Delete(":groupId")
-    deleteGroup(@Param("groupId", ParseIntPipe) groupId: number) {
-        return this.groupService.deleteGroup(groupId)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Delete(":id")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.groupsService.remove(id);
+  }
 }

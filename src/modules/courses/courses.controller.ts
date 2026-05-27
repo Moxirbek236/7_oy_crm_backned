@@ -1,68 +1,69 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, UseGuards } from '@nestjs/common';
-import { CoursesService } from './courses.service';
-import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
-import { Roles } from 'src/common/decorators/role';
-import { AuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/role.guard';
-import { CreateCourseDto } from './dto/create.dto';
-import { UpdateCourseDto } from './dto/update.dto';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  ParseIntPipe,
+  Put,
+  Query,
+} from "@nestjs/common";
+import { CoursesService } from "./courses.service";
+import { CreateCourseDto } from "./dto/create-course.dto";
+import { UpdateCourseDto } from "./dto/update-course.dto";
+import { TokenGuard } from "src/common/guards/token.guards";
+import { RolesGuard } from "src/common/guards/role.guards";
+import { ApiBearerAuth, ApiConsumes, ApiOperation } from "@nestjs/swagger";
+import { Roles } from "src/common/decorators/roles";
+import { UserRole } from "@prisma/client";
+import { FindAllCoursesDto } from "./dto/query.dto";
 
+@Controller("courses")
+@UseGuards(TokenGuard, RolesGuard)
 @ApiBearerAuth()
-@Controller('courses')
 export class CoursesController {
-    constructor(private readonly courseService: CoursesService) { }
+  constructor(private readonly coursesService: CoursesService) {}
 
-    @ApiOperation({
-        summary: `${Role.ADMIN}+ (ADMIN, SUPERADMIN)`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.ADMIN)
-    @Get()
-    getAllCourses() {
-        return this.courseService.getAllCourses()
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Post("courses")
+  create(@Body() payload: CreateCourseDto) {
+    return this.coursesService.create(payload);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Get(':id')
-    getCourseById(@Param('id', ParseIntPipe) id: number) {
-        return this.courseService.getCourseById(id)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get("all")
+  findAll(@Query() query: FindAllCoursesDto) {
+    return this.coursesService.findAll(query);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Post()
-    createCourse(@Body() payload: CreateCourseDto) {
-        return this.courseService.createCourse(payload)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
+    return this.coursesService.findOne(id);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Put(':id')
-    updateCourse(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() payload: UpdateCourseDto
-    ) {
-        return this.courseService.updateCourse(id, payload)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Put(":id")
+  update(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() payload: UpdateCourseDto,
+  ) {
+    return this.coursesService.update(id, payload);
+  }
 
-    @ApiOperation({
-        summary: `${Role.SUPERADMIN}, ${Role.ADMIN}`
-    })
-    @UseGuards(AuthGuard, RolesGuard)
-    @Roles(Role.SUPERADMIN, Role.ADMIN)
-    @Delete(':id')
-    deleteCourse(@Param('id', ParseIntPipe) id: number) {
-        return this.courseService.deleteCourse(id)
-    }
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Delete(":id")
+  remove(@Param("id", ParseIntPipe) id: number) {
+    return this.coursesService.remove(id);
+  }
 }

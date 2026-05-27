@@ -1,742 +1,790 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'src/core/database/prisma.service';
-import { CreateGroupDto } from './dto/create.dto';
-import { CreateLessonDto } from './dto/create-lesson.dto';
-import { GroupStatus, Status, StudentStatus } from '@prisma/client';
-import { filterDto } from './dto/search';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { CreateGroupDto } from "./dto/create-group.dto";
+import { UpdateGroupDto } from "./dto/update-group.dto";
+import { PrismaService } from "src/core/database/prisma.service";
+import { GroupStatus, Status, StudentStatus } from "@prisma/client";
+import { FindAllGroupsDto } from "./dto/query.dto";
 
 @Injectable()
 export class GroupsService {
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
+  async create(payload: CreateGroupDto) {
+    const timeToMinutes = (time: string) => {
+      const [hours, minutes] = time.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
 
-    async getGroupOne(groupId: number) {
-        const existGroup = await this.prisma.group.findFirst({
-            where: {
-                id: groupId,
-                status: Status.active
-            }
-        })
+    const group = await this.prisma.groups.findFirst({
+      where: {
+        name: payload.name,
+      },
+    });
 
-        if (!existGroup) {
-            throw new NotFoundException("Group not found with this id")
-        }
-
-        const groupStudents = await this.prisma.studentGroup.findMany({
-            where: {
-                group_id: groupId,
-                status: Status.active
-            },
-            select: {
-                students: {
-                    select: {
-                        id: true,
-                        full_name: true,
-                        phone: true,
-                        email: true,
-                        photo: true,
-                        birth_date: true,
-                        created_at: true
-                    }
-                }
-            }
-        })
-
-        const dataFormatter = groupStudents.map(el => el.students)
-
-        return {
-            success: true,
-            data: dataFormatter
-        }
+    if (group) {
+      throw new ConflictException("Group already exists");
     }
 
-    async getAllGroups(search: filterDto) {
-        const { groupName, max_student, page, limit, search: q } = search as any
+    const existCourse = await this.prisma.courses.findFirst({
+      where: {
+        id: payload.course_id,
+        status: Status.active,
+      },
+    });
 
-        const pageNum = page && page > 0 ? page : 1
-        const limitNum = limit && limit > 0 ? limit : 20
+    if (!existCourse) {
+      throw new NotFoundException("Active course not foundd");
+    }
 
-        const where: any = { status: Status.active }
+    const room = await this.prisma.rooms.findFirst({
+      where: {
+        id: payload.room_id,
+        status: Status.active,
+      },
+    });
 
-        if (groupName) {
-            where.name = groupName
-        }
-        if (max_student) {
-            where.max_student = +max_student
-        }
+    if (!room) {
+      throw new NotFoundException("Active room not found");
+    }
 
-        if (q && typeof q === 'string' && q.trim().length > 0) {
-            where.OR = [
-                { name: { contains: q.trim(), mode: 'insensitive' } },
-            ]
-        }
+    const startNew = timeToMinutes(payload.start_time);
+    const endNew = startNew + existCourse.duration_hours * 60;
 
-        const total = await this.prisma.group.count({ where })
+    const roomGroups = await this.prisma.groups.findMany({
+      where: {
+        room_id: payload.room_id,
+        OR: [{ status: GroupStatus.active }, { status: GroupStatus.planned }],
+      },
+      select: {
+        start_time: true,
+        week_day: true,
+        course: {
+          select: {
+            duration_hours: true,
+          },
+        },
+      },
+    });
 
-        const groups = await this.prisma.group.findMany({
-            where,
-            select: {
+    const RoomTime = roomGroups.some((el) => {
+      const hasCommonDay = el.week_day.some((day) =>
+        payload.week_day.includes(day),
+      );
+      if (!hasCommonDay) return false;
+
+      const start = timeToMinutes(el.start_time);
+      const end = start + el.course.duration_hours * 60;
+      return start < endNew && end > startNew;
+    });
+
+    if (RoomTime) {
+      throw new ConflictException("Room is already reserved");
+    }
+
+    let teacher_ids = [];
+    if (payload.teachers?.length) {
+      teacher_ids = await this.prisma.teachers.findMany({
+        where: { id: { in: payload.teachers }, status: Status.active },
+        select: {
+          id: true,
+        },
+      });
+
+      if (teacher_ids.length !== payload.teachers?.length) {
+        throw new NotFoundException(
+          "Ba'zi teacherlar topilmadi yoki active emas",
+        );
+      }
+    }
+
+    let student_ids = [];
+    if (payload.students?.length) {
+      student_ids = await this.prisma.students.findMany({
+        where: {
+          id: { in: payload.students },
+          status: StudentStatus.active,
+        },
+        select: {
+          id: true,
+        },
+      });
+      if (student_ids.length !== payload.students.length) {
+        throw new NotFoundException(
+          "Ba'zi studentlar topilmadi yoki active emas",
+        );
+      }
+    }
+
+    if (payload.week_day.length === 0) {
+      throw new NotFoundException("Week days are required");
+    }
+
+    const { teachers, students, ...groupData } = payload;
+
+    await this.prisma.groups.create({
+      data: {
+        ...groupData,
+        start_date: new Date(payload.start_date),
+        end_date: new Date(payload.end_date),
+        teachersGroups: payload.teachers?.length
+          ? {
+              create: payload.teachers?.map((teacher) => ({
+                teacher_id: teacher,
+              })),
+            }
+          : undefined,
+        studentGroups: payload.students?.length
+          ? {
+              create: payload.students?.map((student) => ({
+                student_id: student,
+              })),
+            }
+          : undefined,
+      },
+    });
+    return {
+      success: true,
+      message: "Group created successfully",
+    };
+  }
+
+  async findAll(query: FindAllGroupsDto) {
+    const where: any = {};
+
+    if (query.status) {
+      where.status = query.status;
+    } else if (query.status !== undefined && query.status === null) {
+      // no filter
+    } else {
+      // Default: return all non-cancelled groups
+      where.status = {
+        not: GroupStatus.cancelled,
+      };
+    }
+
+    // If archive requested specifically
+    if (query.status === 'cancelled') {
+      where.status = GroupStatus.cancelled;
+    }
+
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: "insensitive" } },
+        { description: { contains: query.search, mode: "insensitive" } },
+      ];
+    } else {
+      if (query.name) {
+        where.name = { contains: query.name, mode: "insensitive" };
+      }
+      if (query.description) {
+        where.description = { contains: query.description, mode: "insensitive" };
+      }
+    }
+
+    if (query.start_date) {
+      where.start_date = new Date(query.start_date);
+    }
+
+    if (query.week_day) {
+      where.week_day = { has: query.week_day };
+    }
+
+    // week_day_type filter: even, odd, or specific day
+    if (query.week_day_type) {
+      const type = query.week_day_type.toLowerCase();
+      if (type === 'even') {
+        where.week_day = { hasSome: ['Tuesday', 'Thursday', 'Saturday'] };
+      } else if (type === 'odd') {
+        where.week_day = { hasSome: ['Monday', 'Wednesday', 'Friday'] };
+      } else {
+        // Specific day name
+        where.week_day = { has: type.charAt(0).toUpperCase() + type.slice(1) };
+      }
+    }
+
+    if (query.start_time) {
+      where.start_time = query.start_time;
+    }
+
+    if (query.max_students) {
+      where.max_students = Number(query.max_students);
+    }
+
+    // Pagination
+    const page = query.page || 1;
+    const limit = query.limit || 1000;
+    const skip = (page - 1) * limit;
+
+    // Sorting
+    const orderBy: any = {};
+    const sortField = query.sort_by || 'id';
+    const sortOrder = query.sort_order || 'asc';
+    orderBy[sortField] = sortOrder;
+
+    // If dropdown mode - return only id and name
+    if (query.dropdown) {
+      const groups = await this.prisma.groups.findMany({
+        where,
+        orderBy,
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+      return {
+        success: true,
+        data: groups,
+      };
+    }
+
+    // Get total count
+    const total = await this.prisma.groups.count({ where });
+
+    const groups = await this.prisma.groups.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        start_date: true,
+        end_date: true,
+        week_day: true,
+        start_time: true,
+        max_students: true,
+        status: true,
+        created_at: true,
+
+        teachersGroups: {
+          where: {
+            teacher: {
+              status: Status.active,
+            },
+          },
+          select: {
+            teacher: {
+              select: {
                 id: true,
-                name: true,
-                max_student: true,
-                start_date: true,
-                start_time: true,
-                week_day: true,
-                courses: {
-                    select: {
-                        id: true,
-                        name: true,
-                        duration_hours: true,
-                        duration_month: true
-                    }
-                },
-                rooms: {
-                    select: {
-                        id: true,
-                        name: true
-                    }
-                },
-                GroupTeacher: {
-                    select: {
-                        Teacher: {
-                            select: {
-                                id: true,
-                                full_name: true
-                            }
-                        }
-                    }
-                },
-                studentGroups: {
-                    select: {
-                        students: {
-                            select: {
-                                id: true,
-                                full_name: true
-                            }
-                        }
-                    }
-                }
+                full_name: true,
+              },
             },
-            skip: (pageNum - 1) * limitNum,
-            take: limitNum
-        })
+          },
+        },
 
-        const dataFormatter = groups.map((el) => ({
-            id: el.id,
-            name: el.name,
-            startDate: el.start_date.toISOString(),
-            start_time: el.start_time,
-            endDate: el.start_date instanceof Date
-                ? new Date(el.start_date.getTime() + (el.courses.duration_month || 0) * 30 * 24 * 60 * 60 * 1000).toISOString()
-                : (el.start_date as any),
-            days: el.week_day,
-            course: {
-                name: el.courses.name,
-                duration_month: el.courses.duration_month,
-                duration_hours: el.courses.duration_hours,
+        studentGroups: {
+          where: {
+            status: Status.active,
+            students: {
+              status: "active",
             },
-            room: el.rooms.name,
-            teachers: el.GroupTeacher.map(gt => ({
-                id: gt.Teacher.id,
-                full_name: gt.Teacher.full_name
-            })),
-            student_count: el.studentGroups.length,
-            students: el.studentGroups.map(sg => sg.students)
-        }));
+          },
+          select: {
+            students: {
+              select: {
+                id: true,
+                full_name: true,
+              },
+            },
+          },
+        },
+        rooms: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        course: {
+          select: {
+            id: true,
+            name: true,
+            duration_hours: true,
+          },
+        },
+      },
+    });
 
-        const totalPages = Math.ceil(total / limitNum)
+    const totalPages = Math.ceil(total / limit);
 
-        return {
-            success: true,
-            data: dataFormatter,
-            total,
-            totalPages
-        }
+    return {
+      success: true,
+      data: groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        start_date: group.start_date,
+        end_date: group.end_date,
+        week_day: group.week_day,
+        start_time: group.start_time,
+        max_students: group.max_students,
+        status: group.status,
+        created_at: group.created_at,
+        teachers: group.teachersGroups?.map((g) => g.teacher) || [],
+        students: group.studentGroups?.length || 0,
+        course: group.course.name,
+        course_duration: group.course.duration_hours,
+        rooms: group.rooms.name,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async getStats() {
+    const totalGroups = await this.prisma.groups.count({
+      where: {
+        status: { not: GroupStatus.cancelled },
+      },
+    });
+
+    const activeGroups = await this.prisma.groups.count({
+      where: {
+        status: GroupStatus.active,
+      },
+    });
+
+    const archivedGroups = await this.prisma.groups.count({
+      where: {
+        status: GroupStatus.cancelled,
+      },
+    });
+
+    // Get unique teachers count across all active groups
+    const groupsWithTeachers = await this.prisma.groups.findMany({
+      where: {
+        status: { not: GroupStatus.cancelled },
+      },
+      select: {
+        teachersGroups: {
+          select: {
+            teacher_id: true,
+          },
+        },
+      },
+    });
+
+    const teacherIds = new Set<number>();
+    groupsWithTeachers.forEach(g => {
+      g.teachersGroups.forEach(tg => teacherIds.add(tg.teacher_id));
+    });
+    const uniqueTeachers = teacherIds.size;
+
+    // Get total students count across all active groups
+    const totalStudentsResult = await this.prisma.studentGroup.count({
+      where: {
+        status: Status.active,
+        students: {
+          status: "active",
+        },
+        groups: {
+          status: { not: GroupStatus.cancelled },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        totalGroups,
+        uniqueTeachers,
+        totalStudents: totalStudentsResult,
+        activeGroups,
+        archivedGroups,
+      },
+    };
+  }
+
+  async findOne(id: number) {
+    const group = await this.prisma.groups.findUnique({
+      where: { id },
+      include: {
+        rooms: true,
+        course: true,
+        teachersGroups: {
+          where: {
+            teacher: { status: "active" },
+          },
+          include: {
+            teacher: {
+              select: {
+                id: true,
+                full_name: true,
+                photo: true,
+              },
+            },
+          },
+        },
+        studentGroups: {
+          where: {
+            students: { status: "active" },
+            status: "active",
+          },
+          include: {
+            students: true,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException("Group not found");
     }
 
-    async getGroupById(groupId: number) {
-        const now = new Date();
-        const existGroup = await this.prisma.group.findFirst({
-            where: {
-                id: groupId,
-                status: Status.active
-            },
-            include: {
-                courses: {
-                    select: {
-                        id: true,
-                        name: true,
-                        duration_hours: true,
-                        duration_month: true,
-                    }
-                },
-                rooms: {
-                    select: {
-                        id: true,
-                        name: true,
-                        capacity: true,
-                    }
-                },
-                GroupTeacher: {
-                    select: {
-                        Teacher: {
-                            select: {
-                                id: true,
-                                full_name: true,
-                                photo: true
-                            }
-                        }
-                    }
-                },
-                studentGroups: {
-                    where: { status: Status.active },
-                    select: {
-                        students: {
-                            select: {
-                                id: true,
-                                full_name: true,
-                                phone: true,
-                                photo: true,
-                                birth_date: true,
-                                status: true,
-                            }
-                        }
-                    }
-                }
-            }
-        })
+    const groupStudentsCount = await this.prisma.studentGroup.count({
+      where: {
+        group_id: id,
+        status: Status.active,
+        students: {
+          status: "active",
+        },
+      },
+    });
 
-        if (!existGroup) {
-            throw new NotFoundException("Group not found with this id")
+    const now = new Date();
+    const studentsList = group.studentGroups || [];
+
+    const totalAge = studentsList.reduce((sum, item) => {
+      if (!item.students?.birth_date) return sum;
+      const birthDate = new Date(item.students.birth_date);
+      if (isNaN(birthDate.getTime())) return sum;
+
+      let age = now.getFullYear() - birthDate.getFullYear();
+      const monthDiff = now.getMonth() - birthDate.getMonth();
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && now.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+      return sum + age;
+    }, 0);
+
+    const averageAge =
+      studentsList.length > 0 ? totalAge / studentsList.length : 0;
+
+    // Calculate lesson counts
+    let totalLessonsCount = 0;
+    let firstMonthLessonsCount = 0;
+
+    if (group.start_date && group.week_day && group.course?.duration_month) {
+      const dayMap = {
+        Dushanba: 1,
+        Seshanba: 2,
+        Chorshanba: 3,
+        Payshanba: 4,
+        Juma: 5,
+        Shanba: 6,
+        Yakshanba: 0,
+        Monday: 1,
+        Tuesday: 2,
+        Wednesday: 3,
+        Thursday: 4,
+        Friday: 5,
+        Saturday: 6,
+        Sunday: 0,
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5,
+        "6": 6,
+        "7": 0,
+      };
+      const lessonDays = group.week_day
+        .map((d) => dayMap[d])
+        .filter((d) => d !== undefined);
+
+      for (let m = 0; m < group.course.duration_month; m++) {
+        const monthDate = new Date(group.start_date);
+        monthDate.setMonth(monthDate.getMonth() + m);
+        const year = monthDate.getFullYear();
+        const month = monthDate.getMonth();
+
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let monthCount = 0;
+
+        for (let i = 1; i <= daysInMonth; i++) {
+          const date = new Date(year, month, i);
+          if (m === 0 && date < group.start_date) continue;
+
+          if (lessonDays.includes(date.getDay())) {
+            monthCount++;
+            totalLessonsCount++;
+          }
         }
+        if (m === 0) firstMonthLessonsCount = monthCount;
+      }
+    }
 
-        const groupStudentsCount = existGroup.studentGroups.length
+    const dataFormatter = {
+      ...group,
+      students_count: groupStudentsCount,
+      teachers: group.teachersGroups.map((g) => g.teacher),
+      averageAge: averageAge,
+      room_capacity: group.rooms?.capacity,
+      room: group.rooms, // For frontend compat
+      total_lessons: totalLessonsCount,
+      month_lessons: firstMonthLessonsCount,
+    };
 
-        const ages = existGroup.studentGroups
-            .filter((item: any) => item.students?.birth_date)
-            .map((item: any) => {
-                const birthDate = new Date(item.students.birth_date);
-                let age = now.getFullYear() - birthDate.getFullYear();
-                const monthDiff = now.getMonth() - birthDate.getMonth();
-                if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
-                    age--;
-                }
-                return age;
-            });
+    return {
+      success: true,
+      data: dataFormatter,
+    };
+  }
 
-        const averageAge = ages.length > 0
-            ? Math.round(ages.reduce((sum: number, age: number) => sum + age, 0) / ages.length)
-            : 0;
+  async update(id: number, payload: UpdateGroupDto) {
+    const existingGroup = await this.prisma.groups.findUnique({
+      where: { id },
+    });
 
-        const studentsList = existGroup.studentGroups.map((sg: any) => sg.students).filter(Boolean)
+    if (!existingGroup) {
+      throw new NotFoundException("Group not found");
+    }
 
-        const end_date = new Date(existGroup.start_date);
+    if (payload.name) {
+      const group = await this.prisma.groups.findFirst({
+        where: {
+          name: payload.name,
+          NOT: { id },
+        },
+      });
 
-        end_date.setMonth(
-            end_date.getMonth() + existGroup.courses.duration_month
+      if (group) {
+        throw new ConflictException("Group already exists");
+      }
+    }
+
+    if (payload.teachers) {
+      const teacher = await this.prisma.teachers.findMany({
+        where: {
+          id: { in: payload.teachers },
+          status: Status.active,
+        },
+      });
+
+      if (teacher.length !== payload.teachers.length) {
+        throw new NotFoundException(
+          "Ba'zi teacherlar topilmadi yoki active emas",
         );
-
-        return {
-            success: true,
-            data: {
-                id: existGroup.id,
-                name: existGroup.name,
-                status: existGroup.status === "active" ? "ACTIVE" : existGroup.status.toUpperCase(),
-                days: existGroup.week_day,
-                start_date: existGroup.start_date.toISOString().split("T")[0],
-                start_time: existGroup.start_time,
-                end_date: end_date?.toISOString().split("T")[0] ?? "",
-                startTime: existGroup.start_time,
-                startDate: existGroup.start_date.toISOString().split("T")[0],
-                endDate: end_date?.toISOString().split("T")[0] ?? "",
-                student_count: groupStudentsCount,
-                teachers: existGroup.GroupTeacher.map((gt: any) => ({
-                    id: gt.Teacher.id,
-                    fullname: gt.Teacher.full_name,
-                    full_name: gt.Teacher.full_name,
-                    photo: gt.Teacher.photo,
-                    phone: gt.Teacher.phone || "",
-                })),
-                students: studentsList.map((s: any) => ({
-                    id: s.id,
-                    fullname: s.full_name,
-                    full_name: s.full_name,
-                    phone: s.phone,
-                    photo: s.photo,
-                    status: s.status === "active" ? "ACTIVE" : s.status?.toUpperCase() || "ACTIVE",
-                    hasDebt: false,
-                    birth_date: s.birth_date,
-                })),
-                course: {
-                    id: existGroup.courses.id,
-                    name: existGroup.courses.name,
-                    duration_month: existGroup.courses.duration_month,
-                    duration_hours: existGroup.courses.duration_hours,
-                    price: 0,
-                    duration: `${existGroup.courses.duration_month} oy`,
-                    days: existGroup.week_day,
-                    startDate: existGroup.start_date.toISOString().split("T")[0],
-                    endDate: end_date?.toISOString().split("T")[0] ?? "",
-                    startTime: existGroup.start_time,
-                },
-                course_id: existGroup.course_id,
-                room: {
-                    id: existGroup.rooms.id,
-                    name: existGroup.rooms.name,
-                },
-                room_id: existGroup.room_id,
-                createdAt: existGroup.created_at.toISOString(),
-                max_student: existGroup.max_student,
-                user: { name: "" },
-                averageAge: averageAge,
-            }
-        }
+      }
     }
 
-    async getGroupReport(branchId?: number) {
-        const whereGroups: any = {
-            status: GroupStatus.active,
-        };
+    if (payload.course_id) {
+      const course = await this.prisma.courses.findFirst({
+        where: {
+          id: payload.course_id,
+          status: Status.active,
+        },
+      });
 
-        if (branchId) {
-            whereGroups.branch_id = branchId;
-        }
-
-        const [groupCount, teacherCount, studentCount, teachers, students] = await Promise.all([
-            this.prisma.group.count({ where: whereGroups }),
-            this.prisma.teacher.count({ where: { status: Status.active, ...(branchId && { branch_id: branchId }) } }),
-            this.prisma.student.count({ where: { status: StudentStatus.active, ...(branchId && { branch_id: branchId }) } }),
-            this.prisma.teacher.findMany({
-                where: { status: Status.active, ...(branchId && { branch_id: branchId }) },
-                select: { photo: true },
-                take: 5,
-            }),
-            this.prisma.student.findMany({
-                where: { status: StudentStatus.active, ...(branchId && { branch_id: branchId }) },
-                select: { photo: true },
-                take: 5,
-            }),
-        ]);
-
-        return {
-            success: true,
-            data: {
-                _count: {
-                    group: groupCount,
-                    Teacher: teacherCount,
-                    student: studentCount,
-                },
-                teachers,
-                students,
-            },
-        };
+      if (!course) {
+        throw new NotFoundException("Active course not foundd");
+      }
     }
 
-    async createGroup(payload: CreateGroupDto) {
+    if (payload.room_id) {
+      const room = await this.prisma.rooms.findFirst({
+        where: {
+          id: payload.room_id,
+          status: Status.active,
+        },
+      });
 
-        const timeToMinutes = (time: string) => {
-            const [h, m] = time.split(":").map(Number);
-            return h * 60 + m;
-        };
+      if (!room) {
+        throw new NotFoundException("Active room not found");
+      }
+    }
+    const { teachers, students, ...groupData } = payload;
+    const data: any = { ...groupData };
 
-        const existRoom = await this.prisma.room.findFirst({
-            where: {
-                id: payload.room_id,
-                status: Status.active
-            }
-        });
-
-        if (!existRoom) {
-            throw new NotFoundException("Room is not found with this id");
-        }
-
-        const existCourse = await this.prisma.course.findFirst({
-            where: {
-                id: payload.course_id,
-                status: Status.active
-            }
-        });
-
-        if (!existCourse) {
-            throw new NotFoundException("Course is not found or inactive with this id");
-        }
-
-
-
-        const existGroup = await this.prisma.group.findUnique({
-            where: { name: payload.name }
-        });
-
-        if (existGroup) {
-            throw new ConflictException("Group already exists");
-        }
-
-        const startNew = timeToMinutes(payload.start_time);
-        const endNew = startNew + existCourse.duration_hours * 60;
-
-        const roomGroups = await this.prisma.group.findMany({
-            where: {
-                room_id: payload.room_id,
-                status: Status.active
-            },
-            select: {
-                start_time: true,
-                courses: {
-                    select: {
-                        duration_hours: true
-                    }
-                }
-            }
-        });
-
-        const isRoomBusy = roomGroups.some(el => {
-            const start = timeToMinutes(el.start_time);
-            const end = start + el.courses.duration_hours * 60;
-
-            return start < endNew && end > startNew;
-        });
-
-        if (isRoomBusy) {
-            throw new ConflictException("Room is busy at this time");
-        }
-
-        const { teachers, students, ...groupData } = payload;
-
-        const existingTeachers = await this.prisma.teacher.findMany({
-            where: {
-                id: {
-                    in: teachers
-                }
-            }
-        })
-
-        const existingStudents = await this.prisma.student.findMany({
-            where: {
-                id: {
-                    in: students
-                }
-            }
-        })
-
-        if (existingTeachers.length != teachers?.length) {
-            throw new NotFoundException("Teacher is not found with this id")
-        }
-
-        if (existingStudents?.length != students?.length) {
-            throw new NotFoundException("Student is not found with this id")
-        }
-
-        const newGroup = await this.prisma.group.create({
-            data: {
-                ...groupData,
-                start_date: new Date(payload.start_date),
-                GroupTeacher: teachers?.length ? {
-                    create: teachers?.map(id => ({ teacher_id: id }))
-                } : undefined,
-                studentGroups: students?.length ? {
-                    create: students?.map(id => ({ student_id: id }))
-                } : undefined
-            }
-        });
-
-        return {
-            success: true,
-            message: "Group created successfully",
-            data: newGroup
-        };
+    if (payload.start_date) {
+      data.start_date = new Date(payload.start_date);
     }
 
-    async getSchedules(groupId: number) {
-        const group = await this.prisma.group.findUnique({
-            where: { id: groupId },
-            include: { courses: true }
-        });
-
-        if (!group) {
-            throw new NotFoundException("Group not found");
-        }
-
-        const weekDayMap = {
-            'SUNDAY': 0,
-            'MONDAY': 1,
-            'TUESDAY': 2,
-            'WEDNESDAY': 3,
-            'THURSDAY': 4,
-            'FRIDAY': 5,
-            'SATURDAY': 6
-        };
-
-        const monthNames = [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-        ];
-
-        const { start_date, week_day, courses } = group;
-        const duration = courses.duration_month;
-        const targetWeekDays = week_day.map(wd => weekDayMap[wd]);
-
-        // Fetch completed lesson dates by created_at field
-        const completedLessons = await this.prisma.lesson.findMany({
-            where: {
-                group_id: groupId,
-            },
-            select: {
-                created_at: true
-            }
-        });
-
-        const completedDates = new Set(
-            completedLessons.map(l => l.created_at.toISOString().split('T')[0])
-        );
-
-        const schedules = {};
-        const now = new Date();
-        let currentDate = new Date(start_date);
-
-        for (let i = 1; i <= duration; i++) {
-            const monthDates = [] as { day: number; month: string; isCompleted: boolean }[];
-            const monthStart = new Date(currentDate);
-            const endOfPeriod = new Date(currentDate);
-            endOfPeriod.setMonth(endOfPeriod.getMonth() + 1);
-
-            // A month is active if current date falls within its range
-            const isActive = now >= monthStart && now < endOfPeriod;
-
-            while (currentDate < endOfPeriod) {
-                if (targetWeekDays.includes(currentDate.getDay())) {
-                    const dateStr = currentDate.toISOString().split('T')[0];
-                    monthDates.push({
-                        day: currentDate.getDate(),
-                        month: monthNames[currentDate.getMonth()],
-                        isCompleted: completedDates.has(dateStr)
-                    });
-                }
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-            schedules[i] = {
-                isActive,
-                days: monthDates
-            };
-        }
-
-        return [schedules];
+    if (payload.end_date) {
+      data.end_date = new Date(payload.end_date);
     }
 
-    async updateGroup(groupId: number, payload: Partial<CreateGroupDto>) {
-        const existGroup = await this.prisma.group.findFirst({
-            where: {
-                id: groupId,
-                status: Status.active
-            }
+    await this.prisma.groups.update({
+      where: { id },
+      data: data,
+    });
+
+    if (teachers) {
+      await this.prisma.teachersGroup.deleteMany({
+        where: {
+          group_id: id,
+          teacher_id: {
+            notIn: teachers,
+          },
+        },
+      });
+
+      for (const teacher_id of teachers) {
+        await this.prisma.teachersGroup.upsert({
+          where: { teacher_id_group_id: { teacher_id, group_id: id } },
+          update: {},
+          create: { teacher_id, group_id: id },
         });
-
-        if (!existGroup) {
-            throw new NotFoundException("Group not found with this id")
-        }
-
-        if (payload.name) {
-            const duplicate = await this.prisma.group.findFirst({
-                where: {
-                    name: payload.name,
-                    id: { not: groupId }
-                }
-            })
-            if (duplicate) {
-                throw new ConflictException("Group name already exists")
-            }
-        }
-
-        const { teachers, students, ...groupData } = payload as any;
-
-        // Convert start_date to Date if provided
-        if (groupData.start_date && typeof groupData.start_date === 'string') {
-            groupData.start_date = new Date(groupData.start_date);
-        }
-
-        // Handle teacher relationships update
-        if (teachers && Array.isArray(teachers)) {
-            // Delete existing teacher relationships
-            await this.prisma.groupTeacher.deleteMany({
-                where: { group_id: groupId }
-            });
-            // Create new teacher relationships
-            if (teachers.length > 0) {
-                await this.prisma.groupTeacher.createMany({
-                    data: teachers.map(id => ({ group_id: groupId, teacher_id: id }))
-                });
-            }
-        }
-
-        // Handle student relationships update
-        if (students && Array.isArray(students)) {
-            // Delete existing student relationships
-            await this.prisma.studentGroup.deleteMany({
-                where: { group_id: groupId }
-            });
-            // Create new student relationships
-            if (students.length > 0) {
-                await this.prisma.studentGroup.createMany({
-                    data: students.map(id => ({ group_id: groupId, student_id: id }))
-                });
-            }
-        }
-
-        await this.prisma.group.update({
-            where: { id: groupId },
-            data: {
-                ...groupData,
-                update_at: new Date()
-            }
-        })
-
-        return {
-            success: true,
-            message: "Group updated successfully"
-        }
+      }
     }
 
-    async deleteGroup(groupId: number) {
-        const existGroup = await this.prisma.group.findFirst({
-            where: {
-                id: groupId,
-                status: Status.active
-            }
+    if (students) {
+      await this.prisma.studentGroup.deleteMany({
+        where: {
+          group_id: id,
+          student_id: {
+            notIn: students,
+          },
+        },
+      });
+
+      for (const student_id of students) {
+        await this.prisma.studentGroup.upsert({
+          where: { student_id_group_id: { student_id, group_id: id } },
+          update: {},
+          create: { student_id, group_id: id },
         });
-
-        if (!existGroup) {
-            throw new NotFoundException("Group not found with this id")
-        }
-
-        await this.prisma.group.update({
-            where: { id: groupId },
-            data: {
-                status: GroupStatus.completed,
-                update_at: new Date()
-            }
-        })
-
-        return {
-            success: true,
-            message: "Group deleted successfully"
-        }
+      }
     }
 
-    async createLesson(groupId: number, payload: CreateLessonDto) {
-        const existGroup = await this.prisma.group.findFirst({
-            where: { id: groupId, status: Status.active }
-        });
-        if (!existGroup) {
-            throw new NotFoundException('Group not found');
-        }
+    return {
+      success: true,
+      message: "Group updated successfully",
+    };
+  }
 
-        // Duplicate lesson for same date check (using range for created_at)
-        const date = new Date(payload.lesson_date);
-        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+  async remove(id: number) {
+    const group = await this.prisma.groups.findUnique({
+      where: { id },
+    });
 
-        const existLesson = await this.prisma.lesson.findFirst({
-            where: {
-                group_id: groupId,
-                created_at: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                }
-            }
-        });
-        if (existLesson) {
-            throw new ConflictException('Lesson already exists for this date');
-        }
-
-        const lesson = await this.prisma.lesson.create({
-            data: {
-                group_id: groupId,
-                topic: payload.topic,
-                description: payload.description,
-                created_at: startOfDay
-            }
-        });
-
-        // Create Attendance records separately linked to group
-        if (payload.attendances?.length) {
-            await this.prisma.attendance.createMany({
-                data: payload.attendances.map(a => ({
-                    group_id: groupId,
-                    student_id: a.student_id,
-                    isPresent: true,
-                    created_at: startOfDay
-                }))
-            });
-        }
-
-        return {
-            success: true,
-            message: 'Lesson and attendance created successfully',
-            data: lesson
-        };
+    if (!group) {
+      throw new NotFoundException("Group not found");
     }
 
-    async getLessonByDate(groupId: number, dateStr: string) {
-        const date = new Date(dateStr);
-        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+    await this.prisma.groups.update({
+      where: { id },
+      data: {
+        status: GroupStatus.cancelled,
+      },
+    });
 
-        const lesson = await this.prisma.lesson.findFirst({
-            where: {
-                group_id: groupId,
-                created_at: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                }
-            }
-        });
+    return {
+      success: true,
+      message: "Group deleted successfully",
+    };
+  }
 
-        const attendances = await this.prisma.attendance.findMany({
-            where: {
-                group_id: groupId,
-                created_at: {
-                    gte: startOfDay,
-                    lte: endOfDay
-                }
-            },
-            include: {
-                students: {
-                    select: { id: true, full_name: true, photo: true }
-                }
-            }
-        });
+  async getSchedule(id: number) {
+    const group = await this.prisma.groups.findUnique({
+      where: { id },
+      include: {
+        course: {
+          select: {
+            duration_month: true,
+          },
+        },
+      },
+    });
 
-        // All students in group
-        const groupStudents = await this.prisma.studentGroup.findMany({
-            where: { group_id: groupId, status: Status.active },
-            select: {
-                students: {
-                    select: { id: true, full_name: true, photo: true }
-                }
-            }
-        });
-
-        const students = groupStudents.map(sg => sg.students);
-        const presentIds = new Set(
-            attendances.map(a => a.student_id)
-        );
-
-        const attendanceList = students.map(s => ({
-            student_id: s.id,
-            full_name: s.full_name,
-            photo: s.photo,
-            isPresent: presentIds.has(s.id)
-        }));
-
-        return {
-            success: true,
-            data: {
-                lesson: lesson ? {
-                    id: lesson.id,
-                    topic: lesson.topic,
-                    description: lesson.description,
-                    created_at: lesson.created_at
-                } : null,
-                attendance: attendanceList
-            }
-        };
+    if (!group) {
+      throw new NotFoundException("Group not found");
     }
+
+    const { start_date, week_day } = group;
+    const duration_month = group.course.duration_month;
+
+    // Day names mapping
+    const dayMap = {
+      sunday: 0,
+      yakshanba: 0,
+      monday: 1,
+      dushanba: 1,
+      tuesday: 2,
+      seshanba: 2,
+      wednesday: 3,
+      chorshanba: 3,
+      thursday: 4,
+      payshanba: 4,
+      friday: 5,
+      juma: 5,
+      saturday: 6,
+      shanba: 6,
+    };
+
+    // Convert week_day to numbers [0-6]
+    const weekDays = week_day.map((d) => {
+      const lower = d.toLowerCase().trim();
+      if (dayMap[lower] !== undefined) return dayMap[lower];
+      const val = parseInt(d);
+      return val === 7 ? 0 : val;
+    });
+
+    const months = [
+      "Yanvar",
+      "Fevral",
+      "Mart",
+      "Aprel",
+      "May",
+      "Iyun",
+      "Iyul",
+      "Avgust",
+      "Sentyabr",
+      "Oktyabr",
+      "Noyabr",
+      "Dekabr",
+    ];
+    const daysUz = [
+      "Yakshanba",
+      "Dushanba",
+      "Seshanba",
+      "Chorshanba",
+      "Payshanba",
+      "Juma",
+      "Shanba",
+    ];
+
+    const result = [];
+    let currentStartDate = new Date(start_date);
+
+    for (let i = 1; i <= duration_month; i++) {
+      const lessons = [];
+      const monthEnd = new Date(currentStartDate);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+      const tempDate = new Date(currentStartDate);
+      while (tempDate < monthEnd) {
+        const dayIdx = tempDate.getDay();
+        if (weekDays.includes(dayIdx)) {
+          lessons.push({
+            date: tempDate.toISOString().split("T")[0],
+            day_of_month: tempDate.getDate(),
+            day_name: daysUz[dayIdx],
+          });
+        }
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+
+      result.push({
+        learning_month: i,
+        month_name: months[currentStartDate.getMonth()],
+        year: currentStartDate.getFullYear(),
+        lessons: lessons,
+      });
+
+      currentStartDate = monthEnd;
+    }
+
+    return result;
+  }
 }

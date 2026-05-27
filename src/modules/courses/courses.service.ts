@@ -1,122 +1,124 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CreateCourseDto } from './dto/create.dto';
-import { UpdateCourseDto } from './dto/update.dto';
-import { Status } from '@prisma/client';
-import { PrismaService } from 'src/core/database/prisma.service';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from "@nestjs/common";
+import { CreateCourseDto } from "./dto/create-course.dto";
+import { UpdateCourseDto } from "./dto/update-course.dto";
+import { PrismaService } from "src/core/database/prisma.service";
+import { Status, WeekDay } from "@prisma/client";
+import { FindAllCoursesDto } from "./dto/query.dto";
 
 @Injectable()
 export class CoursesService {
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
+  async create(payload: CreateCourseDto) {
+    const course = await this.prisma.courses.findFirst({
+      where: {
+        name: payload.name,
+      },
+    });
 
-    async getAllCourses() {
-        const courses = await this.prisma.course.findMany({
-            where: { status: Status.active }
-        })
-
-        return {
-            success: true,
-            data: courses
-        }
+    if (course) {
+      throw new ConflictException("Course already exists");
     }
 
-    async getCourseById(id: number) {
-        const course = await this.prisma.course.findFirst({
-            where: {
-                id,
-                status: Status.active
-            }
-        })
+    const res = await this.prisma.courses.create({
+      data: {
+        ...payload,
+      },
+    });
 
-        if (!course) {
-            throw new NotFoundException("Course not found with this id")
-        }
+    return {
+      success: true,
+      message: "Course created successfully",
+    };
+  }
 
-        return {
-            success: true,
-            data: course
-        }
+  async findAll(query: FindAllCoursesDto) {
+    const where: any = {};
+
+    if (query.status) {
+      where.status = query.status;
+    } else {
+      where.status = Status.active;
     }
 
-    async createCourse(payload: CreateCourseDto) {
-        const existCourse = await this.prisma.course.findUnique({
-            where: { name: payload.name }
-        })
-
-        if (existCourse) {
-            throw new ConflictException("Course already exists")
-        }
-
-        const course = await this.prisma.course.create({
-            data: payload
-        })
-
-        return {
-            success: true,
-            data: course
-        }
+    if (query.name) {
+      where.name = query.name;
     }
 
-    async updateCourse(id: number, payload: UpdateCourseDto) {
-        const existCourse = await this.prisma.course.findFirst({
-            where: {
-                id,
-                status: Status.active
-            }
-        })
-
-        if (!existCourse) {
-            throw new NotFoundException("Course not found with this id")
-        }
-
-        if (payload.name) {
-            const duplicate = await this.prisma.course.findFirst({
-                where: {
-                    name: payload.name,
-                    id: { not: id }
-                }
-            })
-            if (duplicate) {
-                throw new ConflictException("Course name already exists")
-            }
-        }
-
-        await this.prisma.course.update({
-            where: { id },
-            data: {
-                ...payload,
-                update_at: new Date()
-            }
-        })
-
-        return {
-            success: true,
-            message: "Course updated successfully"
-        }
+    if (query.description) {
+      where.description = query.description;
     }
 
-    async deleteCourse(id: number) {
-        const existCourse = await this.prisma.course.findFirst({
-            where: {
-                id,
-                status: Status.active
-            }
-        })
-
-        if (!existCourse) {
-            throw new NotFoundException("Course not found with this id")
-        }
-
-        await this.prisma.course.update({
-            where: { id },
-            data: {
-                status: Status.inactive,
-                update_at: new Date()
-            }
-        })
-
-        return {
-            success: true,
-            message: "Course deleted successfully"
-        }
+    if (query.price) {
+      where.price = query.price;
     }
+
+    if (query.duration_month) {
+      where.duration_month = query.duration_month;
+    }
+
+    if (query.duration_hours) {
+      where.duration_hours = query.duration_hours;
+    }
+
+    return await this.prisma.courses.findMany({
+      where,
+      orderBy: {
+        id: "asc",
+      },
+    });
+  }
+
+  async findOne(id: number) {
+    const course = await this.prisma.courses.findUnique({ where: { id } });
+
+    if (!course) {
+      throw new BadRequestException("Course not fount");
+    }
+
+    return {
+      success: true,
+      data: course,
+    };
+  }
+  async update(id: number, payload: UpdateCourseDto) {
+    const course = await this.prisma.courses.findUnique({ where: { id } });
+
+    if (!course) {
+      throw new BadRequestException("Course not fount");
+    }
+
+    await this.prisma.courses.update({
+      where: { id },
+      data: payload,
+    });
+
+    return {
+      success: true,
+      message: "Course update success",
+    };
+  }
+
+  async remove(id: number) {
+    const course = await this.prisma.courses.findUnique({ where: { id } });
+
+    if (!course) {
+      throw new BadRequestException("Course not fount");
+    }
+
+    await this.prisma.courses.update({
+      where: { id },
+      data: {
+        status: Status.inactive,
+      },
+    });
+
+    return {
+      success: true,
+      message: "Course delete success",
+    };
+  }
 }
