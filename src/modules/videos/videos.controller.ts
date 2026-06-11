@@ -51,7 +51,7 @@ export class VideosController {
     return this.videosService.create(dto, req.user, file?.filename, file?.size);
   }
 
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
   @Get("group/:groupId")
   findAllByGroup(
     @Param("groupId", ParseIntPipe) groupId: number,

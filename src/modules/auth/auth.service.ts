@@ -1,9 +1,56 @@
-import { BadRequestException, Body, Injectable, Req } from "@nestjs/common";
-import { CreateAuthDto } from "./dto/create-auth.dto";
-import * as bcrypt from "bcrypt";
-import { PrismaService } from "src/core/database/prisma.service";
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { UserRole } from "@prisma/client";
+import * as bcrypt from "bcrypt";
+import { PrismaService } from "src/core/database/prisma.service";
+import { CreateAuthDto } from "./dto/create-auth.dto";
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+/** Generic error message — never reveal which field was wrong (enumeration attack) */
+const INVALID_CREDENTIALS = "Invalid credentials";
+
+/** Dummy hash used for constant-time comparison when no user is found */
+const DUMMY_HASH =
+  "$2b$10$abcdefghijklmnopqrstuvuXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface JwtPayload {
+  sub: number;       // standard JWT claim for subject/id
+  full_name: string;
+  email: string;
+  phone: string;
+  address: string | null;
+  photo: string | null;
+  status: string;
+  role: UserRole;
+}
+
+interface AuthResult {
+  success: true;
+  token: string;
+}
+
+// ─── Lookup helpers (defined once, reused) ───────────────────────────────────
+
+type UserLike = {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string;
+  address: string | null;
+  photo: string | null;
+  status: string;
+  password: string;
+  role?: UserRole; // present on User, absent on Teachers / Students
+};
+
+// ─── Service ─────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class AuthService {
@@ -11,114 +58,80 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}
-  async loginUser(payload: CreateAuthDto) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        phone: payload.phone,
-      },
-    });
-    if (!user) {
-      throw new BadRequestException("User or password not found");
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+
+  async login(dto: CreateAuthDto): Promise<AuthResult> {
+    const { account, role } = await this.findAccountByPhone(dto.phone);
+    console.log(account, role);
+    
+    // Always run bcrypt — even when no account found — to prevent timing attacks
+    const passwordHash = account?.password ?? DUMMY_HASH;
+    const isValid = await bcrypt.compare(dto.password, passwordHash);
+
+    if (!account || !isValid) {
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
-    const res = await bcrypt.compare(payload.password, user.password);
-    if (!res) {
-      throw new BadRequestException("User or password not found");
+    if (account.status === "inactive" || account.status === "freeze") {
+      throw new UnauthorizedException("Account is not active");
     }
+
+    return { success: true, token: this.signToken(account, role) };
+  }
+
+  /** Returns the current user profile from an already-decoded JWT payload. */
+  getProfile(payload: JwtPayload) {
+    // No DB hit needed — JWT is the source of truth for the session
+    const { sub: id, full_name, email, phone, address, photo, status, role } =
+      payload;
 
     return {
       success: true,
-      token: this.jwtService.sign({
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        phone: user.phone,
-        address: user.address,
-        photo: user.photo,
-        status: user.status,
-        role: user.role,
-      }),
+      data: { id, full_name, email, phone, address, photo, status, role },
     };
   }
 
-  async loginTeacher(payload: CreateAuthDto) {
-    const teacher = await this.prisma.teachers.findFirst({
-      where: {
-        phone: payload.phone,
-      },
-    });
-    if (!teacher) {
-      throw new BadRequestException("Teacher or password not found");
-    }
+  // ── Private helpers ────────────────────────────────────────────────────────
 
-    const res = await bcrypt.compare(payload.password, teacher.password);
-    if (!res) {
-      throw new BadRequestException("Teacher or password not found");
-    }
+  /**
+   * Looks up the three account tables in parallel.
+   * Returns the first match together with the resolved role.
+   *
+   * Parallel queries are safe here because phone values are unique
+   * across all three tables (enforced at the DB level).
+   */
+  private async findAccountByPhone(
+    phone: string,
+  ): Promise<{ account: UserLike | null; role: UserRole }> {
+    const [user, teacher, student] = await Promise.all([
+      this.prisma.user.findUnique({ where: { phone } }),
+      this.prisma.teachers.findUnique({ where: { phone } }),
+      this.prisma.students.findUnique({ where: { phone } }),
+    ]);
 
-    return {
-      success: true,
-      token: this.jwtService.sign({
-        id: teacher.id,
-        full_name: teacher.full_name,
-        email: teacher.email,
-        phone: teacher.phone,
-        address: teacher.address,
-        photo: teacher.photo,
-        status: teacher.status,
-        role: UserRole.TEACHER,
-      }),
-    };
+    console.log(phone
+    );
+    
+
+    if (user)    return { account: user,    role: user.role };
+    if (teacher) return { account: teacher, role: UserRole.TEACHER };
+    if (student) return { account: student, role: UserRole.STUDENT };
+
+    return { account: null, role: UserRole.STUDENT }; // role is irrelevant here
   }
 
-  async loginStudent(payload: CreateAuthDto) {
-    const student = await this.prisma.students.findFirst({
-      where: {
-        phone: payload.phone,
-      },
-    });
-    if (!student) {
-      throw new BadRequestException("Student or password not found");
-    }
-
-    const res = await bcrypt.compare(payload.password, student.password);
-    if (!res) {
-      throw new BadRequestException("Student or password not found");
-    }
-
-    return {
-      success: true,
-      token: this.jwtService.sign({
-        id: student.id,
-        full_name: student.full_name,
-        email: student.email,
-        phone: student.phone,
-        address: student.address,
-        photo: student.photo,
-        status: student.status,
-        role: UserRole.STUDENT,
-      }),
+  private signToken(account: UserLike, role: UserRole): string {
+    const payload: JwtPayload = {
+      sub:       account.id,
+      full_name: account.full_name,
+      email:     account.email,
+      phone:     account.phone,
+      address:   account.address,
+      photo:     account.photo,
+      status:    account.status,
+      role,
     };
-  }
-
-  async me(@Req() req: any) {
-    if (!req || !req.user) {
-      throw new BadRequestException("User not found in request");
-    }
-    const { id, full_name, email, phone, address, photo, status, role } =
-      req.user;
-    return {
-      success: true,
-      data: {
-        id,
-        full_name,
-        email,
-        phone,
-        address,
-        photo,
-        status,
-        role,
-      },
-    };
+    return this.jwtService.sign(payload);
   }
 }

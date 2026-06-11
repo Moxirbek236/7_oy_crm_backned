@@ -6,7 +6,7 @@ import {
 import { CreateGroupDto } from "./dto/create-group.dto";
 import { UpdateGroupDto } from "./dto/update-group.dto";
 import { PrismaService } from "src/core/database/prisma.service";
-import { GroupStatus, Status, StudentStatus } from "@prisma/client";
+import { GroupStatus, Status, StudentStatus, UserRole } from "@prisma/client";
 import { FindAllGroupsDto } from "./dto/query.dto";
 
 @Injectable()
@@ -402,7 +402,35 @@ export class GroupsService {
     };
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, user?: any) {
+    const userId = user?.sub ?? user?.id;
+    if (user?.role === UserRole.TEACHER) {
+      // Teacher can only view groups they are assigned to
+      const teacherGroup = await this.prisma.teachersGroup.findUnique({
+        where: {
+          teacher_id_group_id: {
+            teacher_id: userId,
+            group_id: id,
+          },
+        },
+      });
+      if (!teacherGroup) {
+        throw new NotFoundException("Group not found or not assigned to you");
+      }
+    } else if (user?.role === UserRole.STUDENT) {
+      // Student can only view groups they are enrolled in
+      const studentGroup = await this.prisma.studentGroup.findFirst({
+        where: {
+          student_id: userId,
+          group_id: id,
+          status: "active",
+        },
+      });
+      if (!studentGroup) {
+        throw new NotFoundException("Group not found or not assigned to you");
+      }
+    }
+
     const group = await this.prisma.groups.findUnique({
       where: { id },
       include: {
@@ -685,7 +713,22 @@ export class GroupsService {
     };
   }
 
-  async getSchedule(id: number) {
+  async getSchedule(id: number, user?: any) {
+    const userId = user?.sub ?? user?.id;
+    if (user?.role === UserRole.TEACHER) {
+      const teacherGroup = await this.prisma.teachersGroup.findUnique({
+        where: {
+          teacher_id_group_id: {
+            teacher_id: userId,
+            group_id: id,
+          },
+        },
+      });
+      if (!teacherGroup) {
+        throw new NotFoundException("Group not found or not assigned to you");
+      }
+    }
+
     const group = await this.prisma.groups.findUnique({
       where: { id },
       include: {

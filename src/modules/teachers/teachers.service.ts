@@ -217,7 +217,8 @@ export class TeachersService {
   }
 
   async findGroupStudents(req) {
-    const { id, role } = req.user;
+    const userId = req.user?.sub ?? req.user?.id;
+    const role = req.user?.role;
 
     if (role == "SUPERADMIN" || role == "ADMIN") {
       throw new NotFoundException("This is for teachers only");
@@ -227,7 +228,7 @@ export class TeachersService {
       where: {
         teachersGroups: {
           some: {
-            teacher_id: id,
+            teacher_id: userId,
           },
         },
       },
@@ -262,6 +263,141 @@ export class TeachersService {
       studentCount: el.studentGroups.length,
       students: el.studentGroups.map((el) => el.students),
     }));
+  }
+
+  async getMyGroups(req) {
+    const userId = req.user?.sub ?? req.user?.id;
+
+    const groups = await this.prisma.groups.findMany({
+      where: {
+        teachersGroups: {
+          some: {
+            teacher_id: userId,
+          },
+        },
+        status: { not: "cancelled" },
+      },
+      select: {
+        id: true,
+        name: true,
+        start_date: true,
+        end_date: true,
+        week_day: true,
+        start_time: true,
+        max_students: true,
+        status: true,
+        course: {
+          select: {
+            id: true,
+            name: true,
+            duration_hours: true,
+            duration_month: true,
+          },
+        },
+        rooms: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            studentGroups: true,
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      data: groups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        start_date: g.start_date,
+        end_date: g.end_date,
+        week_day: g.week_day,
+        start_time: g.start_time,
+        max_students: g.max_students,
+        status: g.status,
+        course: g.course?.name,
+        course_duration: g.course?.duration_hours,
+        rooms: g.rooms?.name,
+        students: g._count.studentGroups,
+      })),
+    };
+  }
+
+  async updateProfile(req, payload: { full_name?: string; address?: string }) {
+    const userId = req.user?.sub ?? req.user?.id;
+    if (!userId) {
+      throw new BadRequestException("User ID not found in token");
+    }
+
+    const teacher = await this.prisma.teachers.findUnique({
+      where: { id: userId },
+    });
+
+    if (!teacher) {
+      throw new NotFoundException("Teacher not found");
+    }
+
+    const data: any = {};
+    if (payload.full_name) data.full_name = payload.full_name;
+    if (payload.address !== undefined) data.address = payload.address;
+
+    await this.prisma.teachers.update({
+      where: { id: userId },
+      data,
+    });
+
+    return {
+      success: true,
+      message: "Profile updated successfully",
+    };
+  }
+
+  async getProfile(req) {
+    const userId = req.user?.sub ?? req.user?.id;
+    if (!userId) {
+      throw new BadRequestException("User ID not found in token");
+    }
+
+    const teacher = await this.prisma.teachers.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        full_name: true,
+        email: true,
+        phone: true,
+        photo: true,
+        address: true,
+        status: true,
+        created_at: true,
+        teachersGroups: {
+          select: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!teacher) {
+      throw new NotFoundException("Teacher not found");
+    }
+
+    return {
+      success: true,
+      data: {
+        ...teacher,
+        groups: teacher.teachersGroups.map((tg) => tg.group),
+        teachersGroups: undefined,
+      },
+    };
   }
 
   async update(id: number, payload: UpdateTeacherDto, filename?: string) {

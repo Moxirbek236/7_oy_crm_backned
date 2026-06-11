@@ -108,7 +108,19 @@ export class HomeWorksService {
 
     if (currentUser.role === UserRole.TEACHER) {
       await this.checkTeacherGroup(currentUser.id, groupId);
+    } else if (currentUser.role === UserRole.STUDENT) {
+      const sg = await this.prisma.studentGroup.findFirst({
+        where: {
+          student_id: currentUser.id,
+          group_id: groupId,
+          status: "active",
+          students: { status: "active" },
+        },
+      });
+      if (!sg) throw new ForbiddenException("Siz bu guruhda o'qimaysiz");
     }
+
+    const isStudent = currentUser.role === UserRole.STUDENT;
 
     const homeworks = await this.prisma.homeWork.findMany({
       where: { group_id: groupId },
@@ -116,12 +128,21 @@ export class HomeWorksService {
       include: {
         lessons: { select: { id: true, topic: true, date: true } },
         _count: { select: { homeWorkAnswers: true } },
-        homeWorkAnswers: {
-          select: {
-            id: true,
-            homeWorkResults: { select: { id: true, grade: true } },
-          },
-        },
+        homeWorkAnswers: isStudent
+          ? {
+              where: { student_id: currentUser.id },
+              select: {
+                id: true,
+                homeworkStatus: true,
+                homeWorkResults: { select: { id: true, grade: true } },
+              },
+            }
+          : {
+              select: {
+                id: true,
+                homeWorkResults: { select: { id: true, grade: true } },
+              },
+            },
       },
     });
 

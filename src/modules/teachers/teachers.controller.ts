@@ -30,6 +30,7 @@ import { RolesGuard } from "src/common/guards/role.guards";
 import { Roles } from "src/common/decorators/roles";
 import { UserRole } from "@prisma/client";
 import { FindAllTeachersDto } from "./dto/query.dto";
+import { UpdateTeacherProfileDto } from "./dto/update-teacher-profile.dto";
 
 @Controller("teachers")
 @UseGuards(TokenGuard, RolesGuard)
@@ -92,6 +93,27 @@ export class TeachersController {
   @Get("group/students")
   findGroupStudents(@Req() req: any) {
     return this.teachersService.findGroupStudents(req);
+  }
+
+  @ApiOperation({ summary: `${UserRole.TEACHER} - My groups` })
+  @Roles(UserRole.TEACHER)
+  @Get("my/groups")
+  getMyGroups(@Req() req: any) {
+    return this.teachersService.getMyGroups(req);
+  }
+
+  @ApiOperation({ summary: `${UserRole.TEACHER} - My profile` })
+  @Roles(UserRole.TEACHER)
+  @Get("my/profile")
+  getProfile(@Req() req: any) {
+    return this.teachersService.getProfile(req);
+  }
+
+  @ApiOperation({ summary: `${UserRole.TEACHER} - Update my profile` })
+  @Roles(UserRole.TEACHER)
+  @Put("my/profile")
+  updateProfile(@Req() req: any, @Body() payload: UpdateTeacherProfileDto) {
+    return this.teachersService.updateProfile(req, payload);
   }
 
   @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })

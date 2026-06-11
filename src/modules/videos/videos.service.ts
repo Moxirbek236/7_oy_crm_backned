@@ -151,6 +151,16 @@ export class VideosService {
         where: { teacher_id: currentUser.id, group_id: groupId },
       });
       if (!access) throw new ForbiddenException("Bu guruhga ruxsatingiz yo'q");
+    } else if (currentUser.role === UserRole.STUDENT) {
+      const access = await this.prisma.studentGroup.findFirst({
+        where: {
+          student_id: currentUser.id,
+          group_id: groupId,
+          status: "active",
+          students: { status: "active" },
+        },
+      });
+      if (!access) throw new ForbiddenException("Siz bu guruhda o'qimaysiz");
     }
 
     const videos = await this.prisma.videos.findMany({

@@ -1,40 +1,23 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Req,
-} from "@nestjs/common";
+import { Controller, Post, Get, Body, UseGuards, Req } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { CreateAuthDto } from "./dto/create-auth.dto";
 import { TokenGuard } from "src/common/guards/token.guards";
-import { ApiBearerAuth } from "@nestjs/swagger";
 
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post("user/login")
-  createUser(@Body() payload: CreateAuthDto) {
-    return this.authService.loginUser(payload);
-  }
-  @Post("teacher/login")
-  createTeacher(@Body() payload: CreateAuthDto) {
-    return this.authService.loginTeacher(payload);
-  }
-  @Post("student/login")
-  createStudent(@Body() payload: CreateAuthDto) {
-    return this.authService.loginStudent(payload);
+  login(@Body() dto: CreateAuthDto) {
+    return this.authService.login(dto);
   }
 
   @UseGuards(TokenGuard)
-  @ApiBearerAuth()
   @Get("me")
-  findMe(@Req() req: any) {
-    return this.authService.me(req);
+  me(@Req() req: any) {
+    // req.user is populated by JwtAuthGuard (passport strategy)
+    // AuthService.getProfile() only formats the already-decoded payload —
+    // no extra DB call, no @Req() leaking into the service layer.
+    return this.authService.getProfile(req.user);
   }
 }

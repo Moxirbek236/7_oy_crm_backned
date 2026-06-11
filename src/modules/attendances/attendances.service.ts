@@ -46,24 +46,36 @@ export class AttendancesService {
       );
     }
 
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10);
-    const isToday = date === todayStr;
+    // 2. Vaqt tekshirish (faqat TEACHER uchun)
+    if (currentUser.role === UserRole.TEACHER) {
+      const today = new Date();
+      const todayStr = today.toISOString().slice(0, 10);
+      const isFuture = date > todayStr;
+      const isToday = date === todayStr;
 
-    // 2. Vaqt tekshirish (faqat TEACHER uchun va faqat bugun uchun)
-    if (currentUser.role === UserRole.TEACHER && isToday) {
-      const toMin = (t: string) => {
-        const [h, m] = t.split(":").map(Number);
-        return h * 60 + m;
-      };
-      const start = toMin(group.start_time);
-      const end = start + (group.course?.duration_hours ?? 2) * 60;
-      const now = today.getHours() * 60 + today.getMinutes();
-      if (!(start <= now && now <= end)) {
+      // Teacher can NOT take attendance for FUTURE dates
+      if (isFuture) {
         throw new BadRequestException(
-          "Dars vaqtidan tashqarida davomat olib bo'lmaydi",
+          "Hali dars boshlanish vaqti kelmagan! Kelajak sanasi uchun davomat olib bo'lmaydi",
         );
       }
+
+      // For TODAY: must be within lesson time
+      if (isToday) {
+        const toMin = (t: string) => {
+          const [h, m] = t.split(":").map(Number);
+          return h * 60 + m;
+        };
+        const start = toMin(group.start_time);
+        const end = start + (group.course?.duration_hours ?? 2) * 60;
+        const now = today.getHours() * 60 + today.getMinutes();
+        if (!(start <= now && now <= end)) {
+          throw new BadRequestException(
+            "Dars vaqtidan tashqarida davomat olib bo'lmaydi",
+          );
+        }
+      }
+      // For PAST dates: no time restriction (teacher can take attendance for past lessons)
     }
 
     // 3. Shu kun uchun allaqachon lesson bor-yo'qligini tekshirish

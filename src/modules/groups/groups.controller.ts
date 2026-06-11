@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   UseGuards,
   Query,
+  Req,
 } from "@nestjs/common";
 import { GroupsService } from "./groups.service";
 import { CreateGroupDto } from "./dto/create-group.dto";
@@ -48,18 +49,18 @@ export class GroupsController {
     return this.groupsService.getStats();
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}, ${UserRole.STUDENT}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
   @Get(":id")
-  findOne(@Param("id", ParseIntPipe) id: number) {
-    return this.groupsService.findOne(id);
+  findOne(@Param("id", ParseIntPipe) id: number, @Req() req: any) {
+    return this.groupsService.findOne(id, req?.user);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}, ${UserRole.STUDENT}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
   @Get(":id/schedule")
-  getSchedule(@Param("id", ParseIntPipe) id: number) {
-    return this.groupsService.getSchedule(id);
+  getSchedule(@Param("id", ParseIntPipe) id: number, @Req() req: any) {
+    return this.groupsService.getSchedule(id, req?.user);
   }
   @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)

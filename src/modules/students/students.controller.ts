@@ -12,6 +12,7 @@ import {
   Put,
   UseGuards,
   Query,
+  Req,
 } from "@nestjs/common";
 import { StudentsService } from "./students.service";
 import {
@@ -28,6 +29,7 @@ import { Roles } from "src/common/decorators/roles";
 import { UserRole } from "@prisma/client";
 import { CreateStudentDto } from "./dto/create-student.dto";
 import { UpdateStudentDto } from "./dto/update-student.dto";
+import { UpdateStudentProfileDto } from "./dto/update-student-profile.dto";
 import { FindAllStudentsDto } from "./dto/query.dto";
 
 @Controller("students")
@@ -132,5 +134,42 @@ export class StudentsController {
   @Delete(":id")
   remove(@Param("id", ParseIntPipe) id: number) {
     return this.studentsService.remove(id);
+  }
+
+  // ─── STUDENT-SPECIFIC ENDPOINTS ──────────────────────────────────────────────
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - My groups` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/groups")
+  getMyGroups(@Req() req: any) {
+    return this.studentsService.getMyGroups(req);
+  }
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - Group teachers` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/group/:id/teachers")
+  getGroupTeachers(@Req() req: any, @Param("id", ParseIntPipe) id: number) {
+    return this.studentsService.getGroupTeachers(req, id);
+  }
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - Group lessons` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/group/:id/lessons")
+  getGroupLessons(@Req() req: any, @Param("id", ParseIntPipe) id: number) {
+    return this.studentsService.getGroupLessons(req, id);
+  }
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - My profile` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/profile")
+  getProfile(@Req() req: any) {
+    return this.studentsService.getProfile(req);
+  }
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - Update my profile` })
+  @Roles(UserRole.STUDENT)
+  @Put("my/profile")
+  updateProfile(@Req() req: any, @Body() payload: UpdateStudentProfileDto) {
+    return this.studentsService.updateProfile(req, payload);
   }
 }

@@ -120,9 +120,9 @@ export class HomeWorksController {
 
   // ─── GURUHGA TEGISHLI ─────────────────────────────────────────────────────
   @ApiOperation({
-    summary: "Guruhga tegishli uyga vazifalar (ADMIN, SUPERADMIN, TEACHER)",
+    summary: "Guruhga tegishli uyga vazifalar (ADMIN, SUPERADMIN, TEACHER, STUDENT)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
   @Get("group/:groupId")
   findAllByGroup(
     @Param("groupId", ParseIntPipe) groupId: number,
