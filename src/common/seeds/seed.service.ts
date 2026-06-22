@@ -20,7 +20,6 @@ export class SeederService implements OnModuleInit {
         'Seeder execution failed',
         error instanceof Error ? error.stack : undefined,
       );
-      throw error;
     }
   }
 }

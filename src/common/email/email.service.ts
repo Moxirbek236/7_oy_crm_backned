@@ -1,19 +1,41 @@
+import { Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
-import { Injectable } from "@nestjs/common";
-import { text } from "stream/consumers";
-
+import { SendEmailDto } from "./dto/send-email.dto";
 @Injectable()
 export class EmailService {
-  constructor(private mailerService: MailerService) {}
-  async sendEmail(email: string, login: string, password: string) {
-    await this.mailerService.sendMail({
+  private readonly logger = new Logger(EmailService.name);
+  private readonly from = process.env.MAIL_FROM ?? "noreply@yourdomain.com";
+
+  constructor(private readonly mailerService: MailerService) {}
+
+  async sendEmail(dto: SendEmailDto): Promise<void> {
+    await this.send(dto);
+  }
+
+  async sendOtp(email: string, otp: string, ttlMinutes: number): Promise<void> {
+    await this.send({
       to: email,
-      from: "abdukhoshim99@gmail.com",
-      subject: "Login and password",
-      template: "index",
-      context: {
-        text: `Login: ${login}, Password: ${password}`,
-      },
+      subject: "Tasdiqlash kodi",
+      text: [
+        `Tasdiqlash kodingiz: ${otp}`,
+        `Kod ${ttlMinutes} daqiqa amal qiladi.`,
+        `Agar siz bu so'rovni yubormagan bo'lsangiz, bu xabarni e'tiborsiz qoldiring.`,
+      ].join("\n\n"),
     });
+  }
+
+  private async send(dto: SendEmailDto): Promise<void> {
+    try {
+      await this.mailerService.sendMail({
+        to:       dto.to,
+        from:     this.from,
+        subject:  dto.subject,
+        template: "index",
+        context:  { text: dto.text },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send email to ${dto.to}: ${error.message}`, error.stack);
+      throw new InternalServerErrorException("Failed to send email. Please try again.");
+    }
   }
 }

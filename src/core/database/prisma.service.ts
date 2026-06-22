@@ -15,7 +15,18 @@ export class PrismaService
 {
   constructor() {
     const connectionString = process.env.DATABASE_URL;
-    const pool = new Pool({ connectionString });
+    const useSsl = process.env.DATABASE_SSL !== 'false';
+    
+    const pool = new Pool({
+      connectionString,
+      ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+      max: 2,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 1000,
+    });
+    pool.on('error', (err) => {
+      Logger.error('Unexpected error on idle client', err);
+    });
     const adapter = new PrismaPg(pool);
     super({
       adapter,
@@ -24,12 +35,10 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    await this.$connect();
-    Logger.log("✅ Database connected");
+    Logger.log("✅ Database module initialized");
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
-    Logger.log("❌ Database disconnected");
+    Logger.log("❌ Database module destroyed");
   }
 }

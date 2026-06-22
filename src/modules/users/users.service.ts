@@ -9,46 +9,52 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 import { PrismaService } from "src/core/database/prisma.service";
 import { Status, UserRole } from "@prisma/client";
 import * as bcrypt from "bcrypt";
-import { EmailService } from "src/common/email/email.service";
+import { NotificationService } from "src/common/notifications/notification.service";
 import { FindAllUsersDto } from "./dto/query.dto";
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly emailService: EmailService,
+    private readonly notificationService: NotificationService,
   ) {}
   async create(payload: CreateUserDto) {
-    const admin = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          {
-            email: payload.email,
-          },
-          {
-            phone: payload.phone,
-          },
-        ],
-      },
-    });
+    const [existUser, existTeacher, existStudent] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+      this.prisma.teachers.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+      this.prisma.students.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+    ]);
 
-    if (admin) {
-      throw new ConflictException("User already exists");
+    if (existUser || existTeacher || existStudent) {
+      throw new ConflictException("Email or phone already exists in the system");
     }
 
     const hashPass = await bcrypt.hash(payload.password, 10);
 
-    await this.prisma.user.create({
-      data: {
-        ...payload,
-        role: UserRole.ADMIN,
-        password: hashPass,
-      },
-    });
+    try {
+      await this.prisma.user.create({
+        data: {
+          ...payload,
+          role: UserRole.ADMIN,
+          password: hashPass,
+        },
+      });
+    } catch (error) {
+      if (error.code === "P2002") {
+        throw new ConflictException("Email or phone already exists in the system");
+      }
+      throw error;
+    }
 
-    await this.emailService.sendEmail(
-      payload.email,
+    await this.notificationService.sendWelcomeCredentials(
       payload.phone,
+      payload.email,
       payload.password,
     );
 

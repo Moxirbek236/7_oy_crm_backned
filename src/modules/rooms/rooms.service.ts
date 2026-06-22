@@ -46,16 +46,20 @@ export class RoomsService {
       where.name = query.name;
     }
 
-    return await this.prisma.rooms.findMany({
+    const rooms = await this.prisma.rooms.findMany({
       where,
       orderBy: {
         id: "asc",
       },
     });
+    return {
+      success: true,
+      data: rooms,
+    };
   }
 
-  findOne(id: number) {
-    const room = this.prisma.rooms.findUnique({ where: { id } });
+  async findOne(id: number) {
+    const room = await this.prisma.rooms.findUnique({ where: { id } });
 
     if (!room) {
       throw new BadRequestException("Room not fount");

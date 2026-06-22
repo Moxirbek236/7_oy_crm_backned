@@ -61,8 +61,8 @@ export class AttendancesController {
   })
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get(":id")
-  findOne(@Param("id") id: string) {
-    return this.attendancesService.findOne(+id);
+  async findOne(@Param("id", ParseIntPipe) id: number) {
+    return await this.attendancesService.findOne(id);
   }
 
   @ApiOperation({
@@ -70,11 +70,11 @@ export class AttendancesController {
   })
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Put(":id")
-  update(
-    @Param("id") id: string,
+  async update(
+    @Param("id", ParseIntPipe) id: number,
     @Body() updateAttendanceDto: UpdateAttendanceDto,
   ) {
-    return this.attendancesService.update(+id, updateAttendanceDto);
+    return await this.attendancesService.update(id, updateAttendanceDto);
   }
 
   @ApiOperation({
@@ -82,7 +82,7 @@ export class AttendancesController {
   })
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Delete(":id")
-  remove(@Param("id") id: string) {
-    return this.attendancesService.remove(+id);
+  async remove(@Param("id", ParseIntPipe) id: number) {
+    return await this.attendancesService.remove(id);
   }
 }

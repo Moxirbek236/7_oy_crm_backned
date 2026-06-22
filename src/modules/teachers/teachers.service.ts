@@ -10,44 +10,52 @@ import { PrismaService } from "src/core/database/prisma.service";
 import * as bcrypt from "bcrypt";
 import { join } from "path";
 import fs from "fs";
-import { EmailService } from "src/common/email/email.service";
 import { Prisma, Status } from "@prisma/client";
 import { uploadToSupabase } from "src/core/utils/supabase-upload";
 import { createClient } from "@supabase/supabase-js";
+import { NotificationService } from "src/common/notifications/notification.service";
 import { FindAllTeachersDto } from "./dto/query.dto";
 @Injectable()
 export class TeachersService {
   constructor(
     private prisma: PrismaService,
-    private emailService: EmailService,
+    private readonly notificationService: NotificationService,
   ) {}
   async create(payload: CreateTeacherDto, filename: string) {
-    const existTeacher = await this.prisma.teachers.findFirst({
-      where: {
-        OR: [
-          {
-            email: payload.email,
-          },
-          {
-            phone: payload.phone,
-          },
-        ],
-      },
-    });
+    const [existUser, existTeacher, existStudent] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+      this.prisma.teachers.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+      this.prisma.students.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+    ]);
 
-    if (existTeacher) {
+    if (existUser || existTeacher || existStudent) {
       if (filename) {
         const filePath = join(process.cwd(), "src", "uploads", filename);
-        await fs.unlinkSync(filePath);
+        try { fs.unlinkSync(filePath); } catch {}
       }
-      throw new ConflictException("Teacher already exists");
+      throw new ConflictException("Email or phone already exists in the system");
     }
 
-    if (payload.groups?.length) {
+    let groupIds: number[] = [];
+    if (payload.groups) {
+      groupIds = (
+        Array.isArray(payload.groups) ? payload.groups : [payload.groups]
+      )
+        .map(Number)
+        .filter(Boolean);
+    }
+
+    if (groupIds.length) {
       const groups = await this.prisma.groups.findMany({
         where: {
           id: {
-            in: payload.groups,
+            in: groupIds,
           },
         },
         select: {
@@ -65,26 +73,33 @@ export class TeachersService {
 
     const passHash = await bcrypt.hash(payload.password, 10);
 
-    await this.prisma.teachers.create({
-      data: {
-        full_name: payload.full_name,
-        email: payload.email,
-        phone: payload.phone,
-        address: payload.address,
-        password: passHash,
-        photo: filename ?? null,
-        teachersGroups: payload.groups?.length
-          ? {
-              create: payload.groups?.map((groupId) => ({
-                group_id: groupId,
-              })),
-            }
-          : undefined,
-      },
-    });
-    await this.emailService.sendEmail(
-      payload.email,
+    try {
+      await this.prisma.teachers.create({
+        data: {
+          full_name: payload.full_name,
+          email: payload.email,
+          phone: payload.phone,
+          address: payload.address,
+          password: passHash,
+          photo: filename ?? null,
+          teachersGroups: groupIds.length
+            ? {
+                create: groupIds.map((groupId) => ({
+                  group_id: groupId,
+                })),
+              }
+            : undefined,
+        },
+      });
+    } catch (error) {
+      if (error.code === "P2002") {
+        throw new ConflictException("Email or phone already exists in the system");
+      }
+      throw error;
+    }
+    await this.notificationService.sendWelcomeCredentials(
       payload.phone,
+      payload.email,
       payload.password,
     );
 
@@ -171,7 +186,13 @@ export class TeachersService {
 
     return {
       success: true,
-      data: teachers,
+      data: teachers.map(teacher => {
+        const { teachersGroups, ...rest } = teacher;
+        return {
+          ...rest,
+          groups: teachersGroups.map((tg) => tg.group)
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -333,6 +354,23 @@ export class TeachersService {
       throw new BadRequestException("User ID not found in token");
     }
 
+    const role = req.user?.role;
+    if (role === "SUPERADMIN" || role === "ADMIN") {
+      const data: any = {};
+      if (payload.full_name) data.full_name = payload.full_name;
+      if (payload.address !== undefined) data.address = payload.address;
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data,
+      });
+
+      return {
+        success: true,
+        message: "Profile updated successfully",
+      };
+    }
+
     const teacher = await this.prisma.teachers.findUnique({
       where: { id: userId },
     });
@@ -360,6 +398,21 @@ export class TeachersService {
     const userId = req.user?.sub ?? req.user?.id;
     if (!userId) {
       throw new BadRequestException("User ID not found in token");
+    }
+
+    const role = req.user?.role;
+    if (role === "SUPERADMIN" || role === "ADMIN") {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+      if (!user) throw new NotFoundException("User not found");
+      return {
+        success: true,
+        data: {
+          ...user,
+          groups: [],
+        },
+      };
     }
 
     const teacher = await this.prisma.teachers.findUnique({
@@ -394,7 +447,7 @@ export class TeachersService {
       success: true,
       data: {
         ...teacher,
-        groups: teacher.teachersGroups.map((tg) => tg.group),
+        groups: teacher.teachersGroups.map((tg) => tg.group.name),
         teachersGroups: undefined,
       },
     };

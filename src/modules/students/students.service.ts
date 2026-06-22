@@ -10,43 +10,51 @@ import { PrismaService } from "src/core/database/prisma.service";
 import * as bcrypt from "bcrypt";
 import { join } from "path";
 import fs from "fs";
-import { EmailService } from "src/common/email/email.service";
 import { StudentStatus } from "@prisma/client";
 import { uploadToSupabase } from "src/core/utils/supabase-upload";
 import { createClient } from "@supabase/supabase-js";
+import { NotificationService } from "src/common/notifications/notification.service";
 @Injectable()
 export class StudentsService {
   constructor(
     private prisma: PrismaService,
-    private emailService: EmailService,
-  ) {}
+    private readonly notificationService: NotificationService,
+  ) { }
   async create(payload: CreateStudentDto, filename: string) {
-    const existStudent = await this.prisma.students.findFirst({
-      where: {
-        OR: [
-          {
-            email: payload.email,
-          },
-          {
-            phone: payload.phone,
-          },
-        ],
-      },
-    });
+    const [existUser, existTeacher, existStudent] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+      this.prisma.teachers.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+      this.prisma.students.findFirst({
+        where: { OR: [{ email: payload.email }, { phone: payload.phone }] },
+      }),
+    ]);
 
-    if (existStudent) {
+    if (existUser || existTeacher || existStudent) {
       if (filename) {
         const filePath = join(process.cwd(), "src", "uploads", filename);
-        await fs.unlinkSync(filePath);
+        try { fs.unlinkSync(filePath); } catch {}
       }
-      throw new ConflictException("Student already exists");
+      throw new ConflictException("Email or phone already exists in the system");
     }
 
-    if (payload.groups?.length) {
+    let groupIds: number[] = [];
+    if (payload.groups) {
+      groupIds = (
+        Array.isArray(payload.groups) ? payload.groups : [payload.groups]
+      )
+        .map(Number)
+        .filter(Boolean);
+    }
+
+    if (groupIds.length) {
       const groups = await this.prisma.groups.findMany({
         where: {
           id: {
-            in: payload.groups,
+            in: groupIds,
           },
         },
         select: {
@@ -64,28 +72,38 @@ export class StudentsService {
     }
 
     const passHash = await bcrypt.hash(payload.password, 10);
-
-    await this.prisma.students.create({
-      data: {
-        full_name: payload.full_name,
-        email: payload.email,
-        phone: payload.phone,
-        address: payload.address,
-        password: passHash,
-        photo: filename ?? null,
-        birth_date: new Date(payload.birth_date),
-        studentGroups: payload.groups?.length
-          ? {
-              create: payload.groups?.map((groupId) => ({
+    
+    try {
+      await this.prisma.students.create({
+        data: {
+          full_name: payload.full_name,
+          email: payload.email,
+          phone: payload.phone,
+          address: payload.address,
+          password: passHash,
+          photo: filename ?? null,
+          birth_date: new Date(payload.birth_date),
+          studentGroups: groupIds.length
+            ? {
+              create: groupIds.map((groupId) => ({
                 group_id: groupId,
               })),
             }
-          : undefined,
-      },
-    });
+            : undefined,
+        },
+      });
+    } catch (error) {
+      if (error.code === "P2002") {
+        throw new ConflictException("Email or phone already exists in the system");
+      }
+      throw error;
+    }
 
-    this.emailService.sendEmail(payload.email, payload.phone, payload.password);
-
+    await this.notificationService.sendWelcomeCredentials(
+      payload.phone,
+      payload.email,
+      payload.password,
+    );
     return {
       success: true,
       message: "Student created successfully",
@@ -174,7 +192,13 @@ export class StudentsService {
 
     return {
       success: true,
-      data: students,
+      data: students.map(student => {
+        const { studentGroups, ...rest } = student;
+        return {
+          ...rest,
+          groups: studentGroups.map((sg) => sg.groups)
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -231,7 +255,7 @@ export class StudentsService {
         const filePath = join(process.cwd(), "src", "uploads", student.photo);
         try {
           fs.unlinkSync(filePath);
-        } catch {}
+        } catch { }
 
         const url = process.env.SUPABASE_URL;
         const key = process.env.SUPABASE_KEY;
@@ -239,7 +263,7 @@ export class StudentsService {
           try {
             const supabase = createClient(url, key);
             await supabase.storage.from("NajotEdu").remove([student.photo]);
-          } catch {}
+          } catch { }
         }
       }
       await uploadToSupabase(filename);
@@ -295,11 +319,11 @@ export class StudentsService {
         birth_date,
         studentGroups: groupIds.length
           ? {
-              deleteMany: {},
-              create: groupIds.map((groupId) => ({
-                group_id: groupId,
-              })),
-            }
+            deleteMany: {},
+            create: groupIds.map((groupId) => ({
+              group_id: groupId,
+            })),
+          }
           : undefined,
       },
     });
@@ -352,7 +376,7 @@ export class StudentsService {
     }
 
     const lessons = await this.prisma.lesson.findMany({
-      where: { group_id: groupId },
+      where: { group_id: groupId, status: "active" },
       orderBy: { date: "desc" },
       select: {
         id: true,
@@ -363,22 +387,26 @@ export class StudentsService {
           select: { videos: true },
         },
         homeWorks: {
-          where: {
-            OR: [
-              { teacher_id: { not: null } },
-              { user_id: { not: null } },
-            ],
-          },
           select: {
             id: true,
             title: true,
+            description: true,
+            file: true,
+            video_url: true,
             created_at: true,
             homeWorkAnswers: {
               where: { student_id: studentId },
               select: {
                 id: true,
+                title: true,
+                file: true,
                 homeworkStatus: true,
-                homeWorkResults: { select: { grade: true } },
+                homeWorkResults: {
+                  select: {
+                    grade: true,
+                    title: true,
+                  },
+                },
               },
             },
           },
@@ -413,10 +441,16 @@ export class StudentsService {
       const grade = answer?.homeWorkResults?.[0]?.grade;
 
       let homeWorkStatus = 'Berilmagan';
-      if (status === 'PENDING') homeWorkStatus = 'Kutayotganlar';
-      else if (status === 'ACCEPTED') homeWorkStatus = 'Qabul qilingan';
-      else if (status === 'RETURNED') homeWorkStatus = 'Qaytarilgan';
-      else if (status === 'NOT_DONE') homeWorkStatus = 'Bajarilmagan';
+      if (hw) {
+        if (!answer) {
+          homeWorkStatus = 'Bajarilmagan';
+        } else {
+          if (status === 'PENDING') homeWorkStatus = 'Kutayotgan';
+          else if (status === 'ACCEPTED') homeWorkStatus = 'Qabul qilingan';
+          else if (status === 'RETURNED') homeWorkStatus = 'Qaytarilgan';
+          else if (status === 'NOT_DONE') homeWorkStatus = 'Bajarilmagan';
+        }
+      }
 
       return {
         id: lesson.id,
@@ -424,6 +458,15 @@ export class StudentsService {
         videoCount: lesson._count.videos,
         lessonType: lesson.type || null,
         homeWorkTitle: hw?.title || null,
+        homeWorkDescription: hw?.description || null,
+        homeWorkFile: hw?.file || null,
+        homeWorkVideoUrl: hw?.video_url || null,
+        homeWorkId: hw?.id || null,
+        studentAnswerId: answer?.id || null,
+        studentAnswerComment: answer?.title || null,
+        studentAnswerFiles: answer?.file || null,
+        teacherGrade: grade !== undefined ? grade : null,
+        teacherFeedback: answer?.homeWorkResults?.[0]?.title || null,
         homeWorkStatus,
         homeWorkDeadline: hw?.created_at ? fmtDateTimeStr(hw.created_at) : null,
         dueDate: lesson.date ? fmtDate(lesson.date) : null,
@@ -454,8 +497,8 @@ export class StudentsService {
     const examRows = exams.map((exam) => {
       const answer = exam.examAnswers?.[0];
       const status = answer ? answer.examStatus : null;
-      let homeWorkStatus = 'Berilmagan';
-      if (status === 'PENDING') homeWorkStatus = 'Kutayotganlar';
+      let homeWorkStatus = 'Bajarilmagan';
+      if (status === 'PENDING') homeWorkStatus = 'Kutayotgan';
       else if (status === 'ACCEPTED') homeWorkStatus = 'Qabul qilingan';
       else if (status === 'RETURNED') homeWorkStatus = 'Qaytarilgan';
       else if (status === 'NOT_DONE') homeWorkStatus = 'Bajarilmagan';

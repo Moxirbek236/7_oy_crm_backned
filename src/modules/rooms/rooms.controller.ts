@@ -43,7 +43,7 @@ export class RoomsController {
 
   @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
-  @Get(":id")
+  @Get(["one/:id", ":id"])
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.roomsService.findOne(id);
   }

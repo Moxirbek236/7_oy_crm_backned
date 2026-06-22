@@ -11,8 +11,8 @@ import { join } from "path";
       transport: {
         service: "gmail",
         auth: {
-          user: "abdukhoshim99@gmail.com",
-          pass: "nmsjrxqrofppxirx",
+          user: "moxirbekmoxirbek29@gmail.com",
+          pass: "nzzktepfnkjiyrmu",
         },
       },
       defaults: {

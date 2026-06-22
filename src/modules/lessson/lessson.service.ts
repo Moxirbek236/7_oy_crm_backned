@@ -24,7 +24,7 @@ export class LesssonService {
     });
 
     if (!exsitGroup) {
-      throw new BadRequestException("Group not fount");
+      throw new BadRequestException("Group not found");
     }
 
     if (currentUser.role == "TEACHER") {
@@ -58,7 +58,10 @@ export class LesssonService {
     group_id?: number,
   ) {
     const where: any = {};
-    if (group_id) where.group_id = group_id;
+    if (group_id) {
+      where.group_id = group_id;
+      where.status = Status.active;
+    }
 
     if (
       currentUser.role == UserRole.ADMIN ||
@@ -86,7 +89,19 @@ export class LesssonService {
     }
 
     if (currentUser.role == UserRole.TEACHER) {
-      where.teacher_id = currentUser.id;
+      if (group_id) {
+        const teacherGroup = await this.prisma.teachersGroup.findFirst({
+          where: {
+            group_id: group_id,
+            teacher_id: currentUser.id,
+          },
+        });
+        if (!teacherGroup) {
+          throw new ForbiddenException("Siz bu guruhga dars bermaysiz");
+        }
+      } else {
+        where.teacher_id = currentUser.id;
+      }
       return await this.prisma.lesson.findMany({
         where,
         select: {
@@ -98,10 +113,35 @@ export class LesssonService {
       });
     }
 
-    throw new ForbiddenException(" ");
+    if (currentUser.role == UserRole.STUDENT) {
+      if (!group_id) {
+        throw new BadRequestException("Guruh ID kiritilishi shart");
+      }
+      const studentGroup = await this.prisma.studentGroup.findFirst({
+        where: {
+          group_id: group_id,
+          student_id: currentUser.id,
+          status: "active",
+        },
+      });
+      if (!studentGroup) {
+        throw new ForbiddenException("Siz bu guruhda o'qimaysiz");
+      }
+      return await this.prisma.lesson.findMany({
+        where,
+        select: {
+          id: true,
+          group_id: true,
+          topic: true,
+          description: true,
+        },
+      });
+    }
+
+    throw new ForbiddenException("Sizga ruxsat berilmagan");
   }
 
-  async findOne(id, currentUser: { id: number; role: UserRole }) {
+  async findOne(id: number, currentUser: { id: number; role: UserRole }) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id },
     });
@@ -110,21 +150,40 @@ export class LesssonService {
       throw new NotFoundException("Lesson not found");
     }
 
-    if (currentUser.role == UserRole.ADMIN) {
+    if (currentUser.role == UserRole.ADMIN || currentUser.role == UserRole.SUPERADMIN) {
       return lesson;
     }
-    if (
-      currentUser.role == UserRole.TEACHER &&
-      lesson.teacher_id == currentUser.id
-    ) {
+    if (currentUser.role == UserRole.TEACHER) {
+      const teacherGroup = await this.prisma.teachersGroup.findFirst({
+        where: {
+          group_id: lesson.group_id,
+          teacher_id: currentUser.id,
+        },
+      });
+      if (!teacherGroup) {
+        throw new ForbiddenException("Siz bu guruhga dars bermaysiz");
+      }
+      return lesson;
+    }
+    if (currentUser.role == UserRole.STUDENT) {
+      const studentGroup = await this.prisma.studentGroup.findFirst({
+        where: {
+          group_id: lesson.group_id,
+          student_id: currentUser.id,
+          status: "active",
+        },
+      });
+      if (!studentGroup) {
+        throw new ForbiddenException("Siz bu guruhda o'qimaysiz");
+      }
       return lesson;
     }
 
-    throw new ForbiddenException("You are not allowed to view this lesson");
+    throw new ForbiddenException("Sizga ushbu darsni ko'rishga ruxsat berilmagan");
   }
 
   async update(
-    id,
+    id: number,
     payload: UpdateLesssonDto,
     currentUser: { id: number; role: UserRole },
   ) {
@@ -136,7 +195,7 @@ export class LesssonService {
     });
 
     if (!exsitGroup) {
-      throw new BadRequestException("Group not fount");
+      throw new BadRequestException("Group not found");
     }
 
     if (currentUser.role == "TEACHER") {
@@ -168,7 +227,7 @@ export class LesssonService {
     };
   }
 
-  async remove(id, currentUser: { id: number; role: UserRole }) {
+  async remove(id: number, currentUser: { id: number; role: UserRole }) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id },
     });

@@ -212,7 +212,7 @@ export class HomeWorksController {
     @UploadedFiles() files: { files?: Express.Multer.File[] },
     @Req() req: Request,
   ) {
-    const studentId = req["user"].id;
+    const studentId = req["user"]?.sub ?? req["user"]?.id;
     const fileNames = files?.files?.map((f) => f.filename) || [];
     return this.homeWorksService.submitHomework(
       hwId,

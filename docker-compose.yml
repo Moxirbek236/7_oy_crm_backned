@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: crm_password
+      POSTGRES_DB: crm_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: always
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://crm_user:crm_password@db:5432/crm_db
+      - DATABASE_SSL=false
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=shaftoli
+      - EMAIL=moxirbekmoxirbek29@gmail.com
+      - PASS=nzzktepfnkjiyrmu
+      - ESKIZ_EMAIL=ibrahimoff.uz@gmail.com
+      - ESKIZ_PASSWORD=x7FTih9l1g1aRGq4btMy7fOySY2yepdxcVHeQdg4
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+volumes:
+  pgdata:
+  redisdata:

@@ -17,6 +17,7 @@ import { VideosModule } from "./modules/videos/videos.module";
 import { ExamsModule } from "./modules/exams/exams.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { SeedModule } from "./common/seeds/seed.module";
+import { RedisModule } from "./core/redis/redis.module";
 
 @Module({
   imports: [
@@ -38,7 +39,8 @@ import { SeedModule } from "./common/seeds/seed.module";
     VideosModule,
     ExamsModule,
     DashboardModule,
-    SeedModule
+    SeedModule,
+    RedisModule,
   ],
 })
 export class AppModule {}

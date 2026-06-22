@@ -8,8 +8,8 @@ import {
   IsOptional,
   IsString,
   IsStrongPassword,
-  Matches,
 } from "class-validator";
+import { transformPhone } from "src/common/utils/phone.transform";
 
 export class CreateTeacherDto {
   @ApiProperty()
@@ -26,12 +26,8 @@ export class CreateTeacherDto {
   password: string;
 
   @ApiProperty()
-  @Matches(
-    /^998(20|25|33|50|55|70|71|77|78|88|90|91|93|94|95|97|98|99)\d{7}$/,
-    {
-      message: "Telefon raqami noto'g'ri formatda kiritildi",
-    },
-  )
+  @Transform(transformPhone)
+  @IsMobilePhone("uz-UZ")
   phone: string;
 
   @ApiProperty()

@@ -29,7 +29,7 @@ export class CoursesController {
 
   @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
-  @Post("courses")
+  @Post()
   create(@Body() payload: CreateCourseDto) {
     return this.coursesService.create(payload);
   }
@@ -48,8 +48,6 @@ export class CoursesController {
     return this.coursesService.findOne(id);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
   @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
   @Put(":id")

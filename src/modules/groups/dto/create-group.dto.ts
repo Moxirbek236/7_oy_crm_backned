@@ -7,6 +7,7 @@ import {
   IsNotEmpty,
   IsNumber,
   IsString,
+  IsOptional,
 } from "class-validator";
 
 export class CreateGroupDto {
@@ -34,9 +35,10 @@ export class CreateGroupDto {
   @IsDateString()
   start_date: string;
 
-  @ApiProperty({ example: "2026-06-01" })
+  @ApiPropertyOptional({ example: "2026-06-01" })
+  @IsOptional()
   @IsDateString()
-  end_date: string;
+  end_date?: string;
 
   @ApiPropertyOptional({
     example: [
@@ -60,10 +62,15 @@ export class CreateGroupDto {
   @IsNotEmpty()
   start_time: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
-  @IsNotEmpty()
-  max_students: number;
+  max_students?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  max_student?: number;
 
   @ApiProperty({
     type: [Number],

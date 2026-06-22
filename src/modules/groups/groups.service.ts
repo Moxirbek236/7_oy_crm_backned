@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -36,7 +37,7 @@ export class GroupsService {
     });
 
     if (!existCourse) {
-      throw new NotFoundException("Active course not foundd");
+      throw new NotFoundException("Active course not found");
     }
 
     const room = await this.prisma.rooms.findFirst({
@@ -86,14 +87,15 @@ export class GroupsService {
 
     let teacher_ids = [];
     if (payload.teachers?.length) {
+      const uniqueTeachers = Array.from(new Set(payload.teachers));
       teacher_ids = await this.prisma.teachers.findMany({
-        where: { id: { in: payload.teachers }, status: Status.active },
+        where: { id: { in: uniqueTeachers }, status: Status.active },
         select: {
           id: true,
         },
       });
 
-      if (teacher_ids.length !== payload.teachers?.length) {
+      if (teacher_ids.length !== uniqueTeachers.length) {
         throw new NotFoundException(
           "Ba'zi teacherlar topilmadi yoki active emas",
         );
@@ -102,33 +104,38 @@ export class GroupsService {
 
     let student_ids = [];
     if (payload.students?.length) {
+      const uniqueStudents = Array.from(new Set(payload.students));
       student_ids = await this.prisma.students.findMany({
         where: {
-          id: { in: payload.students },
+          id: { in: uniqueStudents },
           status: StudentStatus.active,
         },
         select: {
           id: true,
         },
       });
-      if (student_ids.length !== payload.students.length) {
+      if (student_ids.length !== uniqueStudents.length) {
         throw new NotFoundException(
           "Ba'zi studentlar topilmadi yoki active emas",
         );
       }
     }
 
-    if (payload.week_day.length === 0) {
-      throw new NotFoundException("Week days are required");
+    if (!payload.week_day || payload.week_day.length === 0) {
+      throw new BadRequestException("Week days are required");
     }
 
-    const { teachers, students, ...groupData } = payload;
+    const { teachers, students, max_student, max_students, end_date, ...groupData } = payload;
+
+    const startDate = new Date(payload.start_date);
+    let computedEndDate = end_date ? new Date(end_date) : new Date(startDate.getFullYear(), startDate.getMonth() + existCourse.duration_month, startDate.getDate());
 
     await this.prisma.groups.create({
       data: {
         ...groupData,
-        start_date: new Date(payload.start_date),
-        end_date: new Date(payload.end_date),
+        max_students: max_student || max_students || 20,
+        start_date: startDate,
+        end_date: computedEndDate,
         teachersGroups: payload.teachers?.length
           ? {
               create: payload.teachers?.map((teacher) => ({
@@ -451,12 +458,17 @@ export class GroupsService {
           },
         },
         studentGroups: {
-          where: {
-            students: { status: "active" },
-            status: "active",
-          },
           include: {
-            students: true,
+            students: {
+              select: {
+                id: true,
+                full_name: true,
+                photo: true,
+                status: true,
+                phone: true,
+                birth_date: true,
+              }
+            },
           },
         },
       },
@@ -504,20 +516,20 @@ export class GroupsService {
 
     if (group.start_date && group.week_day && group.course?.duration_month) {
       const dayMap = {
-        Dushanba: 1,
-        Seshanba: 2,
-        Chorshanba: 3,
-        Payshanba: 4,
-        Juma: 5,
-        Shanba: 6,
-        Yakshanba: 0,
-        Monday: 1,
-        Tuesday: 2,
-        Wednesday: 3,
-        Thursday: 4,
-        Friday: 5,
-        Saturday: 6,
-        Sunday: 0,
+        dushanba: 1,
+        seshanba: 2,
+        chorshanba: 3,
+        payshanba: 4,
+        juma: 5,
+        shanba: 6,
+        yakshanba: 0,
+        monday: 1,
+        tuesday: 2,
+        wednesday: 3,
+        thursday: 4,
+        friday: 5,
+        saturday: 6,
+        sunday: 0,
         "1": 1,
         "2": 2,
         "3": 3,
@@ -527,14 +539,17 @@ export class GroupsService {
         "7": 0,
       };
       const lessonDays = group.week_day
-        .map((d) => dayMap[d])
+        .map((d) => dayMap[d.toLowerCase().trim()])
         .filter((d) => d !== undefined);
 
       for (let m = 0; m < group.course.duration_month; m++) {
-        const monthDate = new Date(group.start_date);
-        monthDate.setMonth(monthDate.getMonth() + m);
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
+        const startDate = new Date(group.start_date);
+        let year = startDate.getFullYear();
+        let month = startDate.getMonth() + m;
+        if (month > 11) {
+          year += Math.floor(month / 12);
+          month = month % 12;
+        }
 
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         let monthCount = 0;
@@ -592,14 +607,15 @@ export class GroupsService {
     }
 
     if (payload.teachers) {
+      const uniqueTeachers = Array.from(new Set(payload.teachers));
       const teacher = await this.prisma.teachers.findMany({
         where: {
-          id: { in: payload.teachers },
+          id: { in: uniqueTeachers },
           status: Status.active,
         },
       });
 
-      if (teacher.length !== payload.teachers.length) {
+      if (teacher.length !== uniqueTeachers.length) {
         throw new NotFoundException(
           "Ba'zi teacherlar topilmadi yoki active emas",
         );
@@ -615,7 +631,7 @@ export class GroupsService {
       });
 
       if (!course) {
-        throw new NotFoundException("Active course not foundd");
+        throw new NotFoundException("Active course not found");
       }
     }
 
@@ -631,15 +647,75 @@ export class GroupsService {
         throw new NotFoundException("Active room not found");
       }
     }
-    const { teachers, students, ...groupData } = payload;
+
+    // Room reservation overlapping check on update
+    const targetRoomId = payload.room_id ?? existingGroup.room_id;
+    const targetStartTime = payload.start_time ?? existingGroup.start_time;
+    const targetWeekDays = payload.week_day ?? existingGroup.week_day;
+    const targetCourseId = payload.course_id ?? existingGroup.course_id;
+
+    const currentCourse = await this.prisma.courses.findFirst({
+      where: {
+        id: targetCourseId,
+        status: Status.active,
+      },
+    });
+
+    if (currentCourse) {
+      const timeToMinutes = (time: string) => {
+        const [hours, minutes] = time.split(":").map(Number);
+        return hours * 60 + minutes;
+      };
+
+      const startNew = timeToMinutes(targetStartTime);
+      const endNew = startNew + currentCourse.duration_hours * 60;
+
+      const roomGroups = await this.prisma.groups.findMany({
+        where: {
+          room_id: targetRoomId,
+          OR: [{ status: GroupStatus.active }, { status: GroupStatus.planned }],
+          NOT: { id: id },
+        },
+        select: {
+          start_time: true,
+          week_day: true,
+          course: {
+            select: {
+              duration_hours: true,
+            },
+          },
+        },
+      });
+
+      const RoomTime = roomGroups.some((el) => {
+        const hasCommonDay = el.week_day.some((day) =>
+          targetWeekDays.includes(day),
+        );
+        if (!hasCommonDay) return false;
+
+        const start = timeToMinutes(el.start_time);
+        const end = start + el.course.duration_hours * 60;
+        return start < endNew && end > startNew;
+      });
+
+      if (RoomTime) {
+        throw new ConflictException("Room is already reserved");
+      }
+    }
+
+    const { teachers, students, max_student, max_students, end_date, ...groupData } = payload;
     const data: any = { ...groupData };
+
+    if (max_student !== undefined || max_students !== undefined) {
+      data.max_students = max_student || max_students;
+    }
 
     if (payload.start_date) {
       data.start_date = new Date(payload.start_date);
     }
 
-    if (payload.end_date) {
-      data.end_date = new Date(payload.end_date);
+    if (end_date) {
+      data.end_date = new Date(end_date);
     }
 
     await this.prisma.groups.update({
@@ -667,16 +743,17 @@ export class GroupsService {
     }
 
     if (students) {
+      const uniqueStudents = Array.from(new Set(students));
       await this.prisma.studentGroup.deleteMany({
         where: {
           group_id: id,
           student_id: {
-            notIn: students,
+            notIn: uniqueStudents,
           },
         },
       });
 
-      for (const student_id of students) {
+      for (const student_id of uniqueStudents) {
         await this.prisma.studentGroup.upsert({
           where: { student_id_group_id: { student_id, group_id: id } },
           update: {},
@@ -798,19 +875,40 @@ export class GroupsService {
     ];
 
     const result = [];
-    let currentStartDate = new Date(start_date);
+    const startObj = new Date(start_date);
 
     for (let i = 1; i <= duration_month; i++) {
       const lessons = [];
-      const monthEnd = new Date(currentStartDate);
-      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      let startYear = startObj.getFullYear();
+      let startMonth = startObj.getMonth() + (i - 1);
+      if (startMonth > 11) {
+        startYear += Math.floor(startMonth / 12);
+        startMonth = startMonth % 12;
+      }
 
-      const tempDate = new Date(currentStartDate);
-      while (tempDate < monthEnd) {
+      let endYear = startObj.getFullYear();
+      let endMonth = startObj.getMonth() + i;
+      if (endMonth > 11) {
+        endYear += Math.floor(endMonth / 12);
+        endMonth = endMonth % 12;
+      }
+
+      const daysInStartMonth = new Date(startYear, startMonth + 1, 0).getDate();
+      const startDay = Math.min(startObj.getDate(), daysInStartMonth);
+      const tempDate = new Date(startYear, startMonth, startDay, 12, 0, 0);
+
+      const daysInEndMonth = new Date(endYear, endMonth + 1, 0).getDate();
+      const endDay = Math.min(startObj.getDate(), daysInEndMonth);
+      const limitDate = new Date(endYear, endMonth, endDay, 12, 0, 0);
+
+      while (tempDate < limitDate) {
         const dayIdx = tempDate.getDay();
         if (weekDays.includes(dayIdx)) {
+          const y = tempDate.getFullYear();
+          const mStr = String(tempDate.getMonth() + 1).padStart(2, "0");
+          const dStr = String(tempDate.getDate()).padStart(2, "0");
           lessons.push({
-            date: tempDate.toISOString().split("T")[0],
+            date: `${y}-${mStr}-${dStr}`,
             day_of_month: tempDate.getDate(),
             day_name: daysUz[dayIdx],
           });
@@ -820,14 +918,24 @@ export class GroupsService {
 
       result.push({
         learning_month: i,
-        month_name: months[currentStartDate.getMonth()],
-        year: currentStartDate.getFullYear(),
+        month_name: months[startMonth],
+        year: startYear,
         lessons: lessons,
       });
-
-      currentStartDate = monthEnd;
     }
 
     return result;
+  }
+
+  async getStudentAttendances(id: number) {
+    const attendances = await this.prisma.attendance.findMany({
+      where: { group_id: id },
+      select: {
+        student_id: true,
+        isPresent: true,
+        date: true,
+      }
+    });
+    return attendances;
   }
 }

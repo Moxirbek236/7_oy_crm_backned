@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
+import { transformPhone } from "src/common/utils/phone.transform";
 import {
   IsArray,
   IsEmail,
@@ -23,7 +24,8 @@ export class CreateStudentDto {
   @IsStrongPassword()
   password: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: "+998901234567" })
+  @Transform(transformPhone)
   @IsMobilePhone("uz-UZ")
   phone: string;
 

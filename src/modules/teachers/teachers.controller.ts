@@ -81,13 +81,6 @@ export class TeachersController {
     return this.teachersService.findAll(query);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
-  @Get(":id")
-  findOne(@Param("id", ParseIntPipe) id: number) {
-    return this.teachersService.findOne(id);
-  }
-
   @ApiOperation({ summary: `${UserRole.TEACHER}` })
   @Roles(UserRole.TEACHER)
   @Get("group/students")
@@ -102,18 +95,25 @@ export class TeachersController {
     return this.teachersService.getMyGroups(req);
   }
 
-  @ApiOperation({ summary: `${UserRole.TEACHER} - My profile` })
-  @Roles(UserRole.TEACHER)
+  @ApiOperation({ summary: `${UserRole.TEACHER}, ${UserRole.ADMIN}, ${UserRole.SUPERADMIN} - My profile` })
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @Get("my/profile")
   getProfile(@Req() req: any) {
     return this.teachersService.getProfile(req);
   }
 
-  @ApiOperation({ summary: `${UserRole.TEACHER} - Update my profile` })
-  @Roles(UserRole.TEACHER)
+  @ApiOperation({ summary: `${UserRole.TEACHER}, ${UserRole.ADMIN}, ${UserRole.SUPERADMIN} - Update my profile` })
+  @Roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPERADMIN)
   @Put("my/profile")
   updateProfile(@Req() req: any, @Body() payload: UpdateTeacherProfileDto) {
     return this.teachersService.updateProfile(req, payload);
+  }
+
+  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
+    return this.teachersService.findOne(id);
   }
 
   @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })

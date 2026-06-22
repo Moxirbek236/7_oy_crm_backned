@@ -7,31 +7,25 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getStats() {
-    const [groups, courses, students, teachers, rooms] = await Promise.all([
-      this.prisma.groups.count({ where: { status: GroupStatus.active } }),
-      this.prisma.courses.count({ where: { status: Status.active } }),
-      this.prisma.students.count({ where: { status: StudentStatus.active } }),
-      this.prisma.teachers.count({ where: { status: Status.active } }),
-      this.prisma.rooms.count({ where: { status: Status.active } }),
-    ]);
+    const groups = await this.prisma.groups.count({ where: { status: GroupStatus.active } });
+    const courses = await this.prisma.courses.count({ where: { status: Status.active } });
+    const students = await this.prisma.students.count({ where: { status: StudentStatus.active } });
+    const teachers = await this.prisma.teachers.count({ where: { status: Status.active } });
+    const rooms = await this.prisma.rooms.count({ where: { status: Status.active } });
 
     // 1. Dars davomati (Attendance rate)
-    const [totalAttendance, presentAttendance] = await Promise.all([
-      this.prisma.attendance.count(),
-      this.prisma.attendance.count({ where: { isPresent: true } }),
-    ]);
+    const totalAttendance = await this.prisma.attendance.count();
+    const presentAttendance = await this.prisma.attendance.count({ where: { isPresent: true } });
     const attendanceRate =
       totalAttendance > 0
         ? Math.round((presentAttendance / totalAttendance) * 100)
         : 0;
 
     // 2. Vazifalar bajarilishi (Homework completion rate)
-    const [totalHomeworkAnswers, acceptedHomeworkAnswers] = await Promise.all([
-      this.prisma.homeWorkAnswer.count(),
-      this.prisma.homeWorkAnswer.count({
-        where: { homeworkStatus: "ACCEPTED" },
-      }),
-    ]);
+    const totalHomeworkAnswers = await this.prisma.homeWorkAnswer.count();
+    const acceptedHomeworkAnswers = await this.prisma.homeWorkAnswer.count({
+      where: { homeworkStatus: "ACCEPTED" },
+    });
     const homeworkCompletionRate =
       totalHomeworkAnswers > 0
         ? Math.round((acceptedHomeworkAnswers / totalHomeworkAnswers) * 100)
@@ -58,47 +52,42 @@ export class DashboardService {
         : 0;
 
     // 4. Faol o'quvchilar ulushi (Active students rate)
-    const [totalStudentsCount, activeStudentsCount] = await Promise.all([
-      this.prisma.students.count(),
-      this.prisma.students.count({ where: { status: StudentStatus.active } }),
-    ]);
+    const totalStudentsCount = await this.prisma.students.count();
+    const activeStudentsCount = await this.prisma.students.count({ where: { status: StudentStatus.active } });
     const activeStudentsRate =
       totalStudentsCount > 0
         ? Math.round((activeStudentsCount / totalStudentsCount) * 100)
         : 0;
 
     // 5. So'nggi faoliyat (Recent activity)
-    const [latestStudents, latestLessons, latestHomeworks, latestGroups] =
-      await Promise.all([
-        this.prisma.students.findMany({
-          take: 3,
-          orderBy: { created_at: "desc" },
-          select: { full_name: true, created_at: true },
-        }),
-        this.prisma.lesson.findMany({
-          take: 3,
-          orderBy: { created_at: "desc" },
-          select: {
-            topic: true,
-            created_at: true,
-            groups: { select: { name: true } },
-          },
-        }),
-        this.prisma.homeWorkAnswer.findMany({
-          take: 3,
-          orderBy: { created_at: "desc" },
-          select: {
-            title: true,
-            created_at: true,
-            students: { select: { full_name: true } },
-          },
-        }),
-        this.prisma.groups.findMany({
-          take: 3,
-          orderBy: { created_at: "desc" },
-          select: { name: true, created_at: true },
-        }),
-      ]);
+    const latestStudents = await this.prisma.students.findMany({
+      take: 3,
+      orderBy: { created_at: "desc" },
+      select: { full_name: true, created_at: true },
+    });
+    const latestLessons = await this.prisma.lesson.findMany({
+      take: 3,
+      orderBy: { created_at: "desc" },
+      select: {
+        topic: true,
+        created_at: true,
+        groups: { select: { name: true } },
+      },
+    });
+    const latestHomeworks = await this.prisma.homeWorkAnswer.findMany({
+      take: 3,
+      orderBy: { created_at: "desc" },
+      select: {
+        title: true,
+        created_at: true,
+        students: { select: { full_name: true } },
+      },
+    });
+    const latestGroups = await this.prisma.groups.findMany({
+      take: 3,
+      orderBy: { created_at: "desc" },
+      select: { name: true, created_at: true },
+    });
 
     const activities: { dot: string; text: string; date: Date }[] = [];
 

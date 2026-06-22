@@ -52,11 +52,13 @@ export class HomeWorksService {
       await this.checkTeacherGroup(currentUser.id, groupId);
     }
 
+    let uploadedFile = file;
+    let uploadedVideo = video;
     if (file) {
-      await uploadToSupabase(file);
+      uploadedFile = await uploadToSupabase(file);
     }
     if (video) {
-      await uploadToSupabase(video);
+      uploadedVideo = await uploadToSupabase(video);
     }
 
     const hw = await this.prisma.homeWork.create({
@@ -65,8 +67,8 @@ export class HomeWorksService {
         group_id: groupId,
         title: dto.title,
         description: dto.description,
-        file: file || dto.file,
-        video_url: video || dto.video_url,
+        file: uploadedFile || dto.file,
+        video_url: uploadedVideo || dto.video_url,
         teacher_id:
           currentUser.role === UserRole.TEACHER ? currentUser.id : null,
         user_id: currentUser.role !== UserRole.TEACHER ? currentUser.id : null,
@@ -78,13 +80,13 @@ export class HomeWorksService {
       },
     });
 
-    if (video || dto.video_url) {
+    if (uploadedVideo || dto.video_url) {
       await this.prisma.videos.create({
         data: {
           group_id: groupId,
           lesson_id: lessonId,
           title: dto.title + " (Video)",
-          video_url: video || dto.video_url,
+          video_url: uploadedVideo || dto.video_url,
           teacher_id:
             currentUser.role === UserRole.TEACHER ? currentUser.id : null,
           user_id:
@@ -506,13 +508,15 @@ export class HomeWorksService {
       where: { homwork_id: hwId, student_id: studentId },
     });
 
+    const uploadedFiles: string[] = [];
     if (files && files.length > 0) {
       for (const file of files) {
-        await uploadToSupabase(file);
+        const name = await uploadToSupabase(file);
+        uploadedFiles.push(name);
       }
     }
 
-    const fileJson = JSON.stringify(files);
+    const fileJson = JSON.stringify(uploadedFiles);
 
     if (existing) {
       // Update existing

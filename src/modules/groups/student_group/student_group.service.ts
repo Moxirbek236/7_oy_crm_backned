@@ -39,19 +39,23 @@ export class StudentGroupService {
       },
     });
 
-    if (!group) {
-      throw new NotFoundException("Group not found");
+    if (!group || group.status === "cancelled") {
+      throw new NotFoundException("Group not found or has been cancelled");
     }
 
     const count = await this.prisma.studentGroup.count({
       where: {
-        student_id: payload.student_id,
+        group_id: payload.group_id,
+        status: Status.active,
+        students: {
+          status: "active",
+        },
       },
     });
 
     if (count >= group.max_students) {
       throw new ConflictException(
-        `Student already has ${group.max_students} groups`,
+        `Guruhda joy qolmagan. Maksimal o'quvchilar soni: ${group.max_students}`,
       );
     }
 
@@ -215,6 +219,7 @@ export class StudentGroupService {
       where: {
         student_id: payload.student_id,
         group_id: payload.group_id,
+        NOT: { id },
       },
     });
 
@@ -251,11 +256,11 @@ export class StudentGroupService {
     };
   }
 
-  async remove(id) {
+  async remove(id: number) {
     const studentGroup = await this.prisma.studentGroup.findUnique({
       where: { id },
     });
-    if (studentGroup) {
+    if (!studentGroup) {
       throw new NotFoundException("Student group not found");
     }
     await this.prisma.studentGroup.update({
