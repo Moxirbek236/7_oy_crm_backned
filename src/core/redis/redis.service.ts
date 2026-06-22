@@ -55,9 +55,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.connect();
     } catch (err) {
-      // Redis mavjud bo'lmasa ilovani to'xtatamiz — OTP ishlamaydigan tizim xavfli
-      this.logger.error("Redis connection failed on startup. Shutting down.", err);
-      process.exit(1);
+      this.logger.error("Redis connection failed on startup.", err);
     }
   }
 
