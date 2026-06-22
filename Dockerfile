@@ -20,5 +20,5 @@ RUN npx prisma generate
 # Build the application
 RUN npm run build
 
-# Start the application using a shell script to ensure prisma push runs first
-CMD npx prisma db push && npm run start:prod
+# Start the application
+CMD npm run start:prod
