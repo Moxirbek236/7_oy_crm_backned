@@ -7,11 +7,11 @@ import { PrismaService } from 'src/core/database/prisma.service';
 export class UserSeeder {
   private readonly logger = new Logger(UserSeeder.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async seedUsers(): Promise<void> {
     const phone = '+998991459686';
-    const password = 'sjtmsimram10';
+    const password = 'Sjtmsimram_10';
     this.logger.log('Seeding SUPERADMIN with email superadmin@example.com');
     const passwordHash = await bcrypt.hash(password, 10);
 
