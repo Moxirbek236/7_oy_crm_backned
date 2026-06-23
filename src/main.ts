@@ -5,6 +5,10 @@ import { Get, ValidationPipe } from "@nestjs/common";
 import * as express from "express";
 import { join } from "path";
 import * as fs from "fs";
+import * as dns from "dns";
+
+// Fix for Render IPv6 ENETUNREACH error when sending emails
+dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
