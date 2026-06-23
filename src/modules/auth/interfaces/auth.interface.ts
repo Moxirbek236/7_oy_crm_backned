@@ -25,5 +25,6 @@ export type UserLike = {
 
 export interface AuthResult {
   success: true;
-  token: string;
+  accessToken: string;
+  role: string;
 }

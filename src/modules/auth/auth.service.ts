@@ -48,7 +48,7 @@ export class AuthService {
       throw new UnauthorizedException("Account is not active");
     }
 
-    return { success: true, token: this.signToken(account, role) };
+    return { success: true, accessToken: this.signToken(account, role), role };
   }
 
 
