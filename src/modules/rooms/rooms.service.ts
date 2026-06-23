@@ -43,18 +43,35 @@ export class RoomsService {
     }
 
     if (query.name) {
-      where.name = query.name;
+      where.name = { contains: query.name, mode: "insensitive" };
+    }
+    if (query.search) {
+      where.name = { contains: query.search, mode: "insensitive" };
     }
 
-    const rooms = await this.prisma.rooms.findMany({
-      where,
-      orderBy: {
-        id: "asc",
-      },
-    });
+    const page = query.page ? Number(query.page) : 1;
+    const limit = query.limit ? Number(query.limit) : 10;
+    const skip = (page - 1) * limit;
+
+    const [rooms, totalCount] = await Promise.all([
+      this.prisma.rooms.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { id: "asc" },
+      }),
+      this.prisma.rooms.count({ where }),
+    ]);
+
     return {
       success: true,
       data: rooms,
+      pagination: {
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        limit,
+      },
     };
   }
 

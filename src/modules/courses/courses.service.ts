@@ -63,13 +63,35 @@ export class CoursesService {
     if (query.duration_hours) {
       where.duration_hours = query.duration_hours;
     }
+    
+    if (query.search) {
+      where.name = { contains: query.search, mode: "insensitive" };
+    }
 
-    return await this.prisma.courses.findMany({
-      where,
-      orderBy: {
-        id: "asc",
+    const page = query.page ? Number(query.page) : 1;
+    const limit = query.limit ? Number(query.limit) : 10;
+    const skip = (page - 1) * limit;
+
+    const [courses, totalCount] = await Promise.all([
+      this.prisma.courses.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { id: "asc" },
+      }),
+      this.prisma.courses.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data: courses,
+      pagination: {
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+        limit,
       },
-    });
+    };
   }
 
   async findOne(id: number) {
