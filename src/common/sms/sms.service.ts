@@ -57,9 +57,10 @@ export class EskizService implements ISmsService, OnModuleInit {
     const token = await this.ensureToken();
 
     try {
+      const cleanPhone = phone.replace(/\D/g, '');
       await this.http.post(
         "/message/sms/send",
-        { mobile_phone: phone, message, from: SENDER_ID },
+        { mobile_phone: cleanPhone, message, from: SENDER_ID },
         { headers: { Authorization: `Bearer ${token}` } },
       );
     } catch (err) {
