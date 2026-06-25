@@ -6,6 +6,8 @@ import * as express from "express";
 import { join } from "path";
 import * as fs from "fs";
 import * as dns from "dns";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
 
 // Fix for Render IPv6 ENETUNREACH error when sending emails
 dns.setDefaultResultOrder('ipv4first');
@@ -13,12 +15,16 @@ dns.setDefaultResultOrder('ipv4first');
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: "*",
+    origin: ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000"], // allow frontend origins
+    credentials: true, // allow cookies
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     preflightContinue: false,
     optionsSuccessStatus: 204,
     maxAge: 86400, // 24 hours
   });
+  
+  app.use(helmet());
+  app.use(cookieParser());
 
   app.use("/file", (req, res, next) => {
     const filename = req.path.replace(/^\//, "");
@@ -58,6 +64,6 @@ async function bootstrap() {
       persistAuthorization: true,
     },
   });
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 3001, '0.0.0.0');
 }
 bootstrap();

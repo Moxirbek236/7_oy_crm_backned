@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   UseGuards,
+  Res,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
@@ -32,8 +33,28 @@ export class AuthController {
   @Post("login")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Login with phone + password" })
-  login(@Body() dto: CreateAuthDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: CreateAuthDto, @Res({ passthrough: true }) res: any) {
+    const result = await this.authService.login(dto);
+    res.cookie("token", result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    });
+    return { success: true, role: result.role };
+  }
+
+  @Post("logout")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Logout user and clear cookie" })
+  async logout(@Res({ passthrough: true }) res: any) {
+    res.cookie("token", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0,
+    });
+    return { success: true, message: "Logged out successfully" };
   }
 
   @Post("send-otp")

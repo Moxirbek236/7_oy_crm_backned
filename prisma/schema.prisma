@@ -90,12 +90,19 @@ model Students {
   photo           String?
   birth_date      DateTime
   status          StudentStatus    @default(active)
+  xp              Int              @default(0)
+  coins           Int              @default(0)
   created_at      DateTime         @default(now())
   updated_at      DateTime         @default(now())
   studentGroups   StudentGroup[]
   attendances     Attendance[]
   homeWorkAnswers HomeWorkAnswer[]
   examAnswers     ExamAnswer[]
+  purchases       Purchase[]
+
+  @@index([status])
+  @@index([full_name])
+  @@index([phone])
 }
 
 model Teachers {
@@ -117,6 +124,10 @@ model Teachers {
   teachersGroups  TeachersGroup[]
   videos          Videos[]
   exams           Exam[]
+
+  @@index([status])
+  @@index([full_name])
+  @@index([phone])
 }
 
 model Courses {
@@ -131,6 +142,9 @@ model Courses {
   updated_at     DateTime    @default(now())
 
   groups Groups[]
+
+  @@index([status])
+  @@index([name])
 }
 
 model Rooms {
@@ -142,6 +156,9 @@ model Rooms {
   updated_at DateTime @default(now())
 
   groups Groups[]
+
+  @@index([status])
+  @@index([name])
 }
 
 model Groups {
@@ -168,6 +185,11 @@ model Groups {
   attendances    Attendance[]
   videos         Videos[]
   exams          Exam[]
+
+  @@index([status])
+  @@index([name])
+  @@index([course_id])
+  @@index([room_id])
 }
 
 model TeachersGroup {
@@ -180,6 +202,9 @@ model TeachersGroup {
   
   group   Groups   @relation(fields: [group_id], references: [id])
   teacher Teachers @relation(fields: [teacher_id], references: [id])
+
+  @@index([teacher_id])
+  @@index([group_id])
 }
 
 model StudentGroup {
@@ -193,6 +218,10 @@ model StudentGroup {
   @@unique([student_id, group_id])
   students Students @relation(fields: [student_id], references: [id])
   groups   Groups   @relation(fields: [group_id], references: [id])
+
+  @@index([status])
+  @@index([student_id])
+  @@index([group_id])
 }
 
 model Lesson {
@@ -341,4 +370,33 @@ model ExamAnswer {
 
   students     Students   @relation(fields: [student_id], references: [id])
   exams        Exam       @relation(fields: [exam_id], references: [id])
+}
+
+// ============================================
+// GIFTS / SHOP MODULE
+// ============================================
+
+model Product {
+  id          Int        @id @default(autoincrement())
+  name        String
+  description String?
+  price       Int
+  image       String?
+  stock       Int        @default(0)
+  status      Status     @default(active)
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+
+  purchases   Purchase[]
+}
+
+model Purchase {
+  id         Int      @id @default(autoincrement())
+  student_id Int
+  product_id Int
+  price      Int      // Narxi sotib olingan vaqtda
+  created_at DateTime @default(now())
+
+  student    Students @relation(fields: [student_id], references: [id])
+  product    Product  @relation(fields: [product_id], references: [id])
 }

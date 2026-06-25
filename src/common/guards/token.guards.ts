@@ -13,13 +13,17 @@ export class TokenGuard implements CanActivate {
     try {
       const host = context.switchToHttp();
       const req = host.getRequest();
-      let token = req.headers.authorization;
+      
+      let token = req.cookies?.token;
+      
+      if (!token && req.headers.authorization) {
+        token = req.headers.authorization.split(" ")[1];
+      }
 
       if (!token) {
         throw new UnauthorizedException("Token not provided");
       }
 
-      token = req.headers.authorization.split(" ")[1];
       const user = await this.jwtServise.verify(token);
       req["user"] = user;
       return true;
