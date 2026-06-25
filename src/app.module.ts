@@ -18,6 +18,8 @@ import { ExamsModule } from "./modules/exams/exams.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { SeedModule } from "./common/seeds/seed.module";
 import { RedisModule } from "./core/redis/redis.module";
+import { HealthModule } from "./modules/health/health.module";
+import { MonitoringModule } from "./modules/monitoring/monitoring.module";
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { RedisModule } from "./core/redis/redis.module";
     DashboardModule,
     SeedModule,
     RedisModule,
+    HealthModule,
+    MonitoringModule,
   ],
 })
 export class AppModule {}

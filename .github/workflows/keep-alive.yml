@@ -1,0 +1,117 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    # Har 5 daqiqada ishga tushadi (Render Free Plan 15 daqiqa sleep threshold)
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    # Qo'lda ishga tushirish imkoniyati
+
+jobs:
+  ping-render:
+    name: Ping Render API Health Endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check required secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.RENDER_API_URL }}" ]; then
+            echo "::error::RENDER_API_URL secret is not configured!"
+            echo "::warning::Please add RENDER_API_URL to GitHub repository secrets."
+            exit 1
+          fi
+          echo "RENDER_API_URL is configured: ${{ secrets.RENDER_API_URL }}"
+
+      - name: Ping health endpoint with retry
+        id: ping
+        run: |
+          HEALTH_URL="${{ secrets.RENDER_API_URL }}/api/v1/health"
+          MAX_RETRIES=3
+          RETRY_DELAY=5
+          attempt=1
+
+          while [ $attempt -le $MAX_RETRIES ]; do
+            echo "==================================="
+            echo "🔄 Keep Render Alive - Attempt ${attempt}/${MAX_RETRIES}"
+            echo "📅 Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "🌐 Target URL: ${HEALTH_URL}"
+            echo "==================================="
+
+            HTTP_RESPONSE=$(curl -sS \
+              --max-time 15 \
+              --connect-timeout 10 \
+              -o /tmp/render-health-response.json \
+              -w "%{http_code}" \
+              -H "User-Agent: GitHubActions-KeepAlive/1.0" \
+              "${HEALTH_URL}" 2>&1)
+
+            CURL_EXIT_CODE=$?
+
+            echo "📊 HTTP Status Code: ${HTTP_RESPONSE}"
+            echo "🔚 Curl Exit Code: ${CURL_EXIT_CODE}"
+
+            # Network xatosi
+            if [ $CURL_EXIT_CODE -ne 0 ]; then
+              echo "::warning::❌ Network error (exit code: ${CURL_EXIT_CODE})"
+              case $CURL_EXIT_CODE in
+                6)  echo "::error::Could not resolve hostname. Check RENDER_API_URL secret." ;;
+                7)  echo "::error::Failed to connect to server. Service may be down." ;;
+                28) echo "::error::Connection timed out. Service is not responding." ;;
+                *)  echo "::error::Unknown curl error occurred." ;;
+              esac
+
+              if [ $attempt -lt $MAX_RETRIES ]; then
+                echo "⏳ Waiting ${RETRY_DELAY}s before retry..."
+                sleep $RETRY_DELAY
+                attempt=$((attempt + 1))
+                continue
+              fi
+
+              echo "::error::❌ All ${MAX_RETRIES} attempts failed due to network errors."
+              exit 1
+            fi
+
+            # HTTP status kodini tekshirish
+            if [ "$HTTP_RESPONSE" != "200" ]; then
+              echo "::error::❌ Health check failed with status ${HTTP_RESPONSE}"
+              if [ -f /tmp/render-health-response.json ]; then
+                echo "📄 Response body:"
+                cat /tmp/render-health-response.json | head -c 500
+              fi
+
+              if [ $attempt -lt $MAX_RETRIES ]; then
+                echo "⏳ Waiting ${RETRY_DELAY}s before retry..."
+                sleep $RETRY_DELAY
+                attempt=$((attempt + 1))
+                continue
+              fi
+
+              echo "::error::❌ All ${MAX_RETRIES} attempts failed with non-200 status codes."
+              exit 1
+            fi
+
+            # Muvaffaqiyatli
+            echo "::notice::✅ Health check passed! HTTP 200 OK (Attempt ${attempt}/${MAX_RETRIES})"
+
+            if [ -f /tmp/render-health-response.json ]; then
+              echo ""
+              echo "📦 Response data:"
+              cat /tmp/render-health-response.json | python3 -m json.tool 2>/dev/null || cat /tmp/render-health-response.json
+            fi
+
+            # Muvaffaqiyatli bo'ldi, loop dan chiq
+            break
+          done
+
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          echo "::error::=========================================="
+          echo "::error::🚨 RENDER SERVICE PING FAILED!"
+          echo "::error::URL: ${{ secrets.RENDER_API_URL }}/api/v1/health"
+          echo "::error::Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "::error::=========================================="
+          echo "::warning::Check Render dashboard: https://dashboard.render.com"
+          echo "::warning::Check GitHub Actions logs for details."
