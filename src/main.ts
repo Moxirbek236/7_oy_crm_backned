@@ -14,14 +14,14 @@ dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors({
-    origin: "*" , // allow frontend origins
-    credentials: true, // allow cookies
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-    maxAge: 86400, // 24 hours
-  });
+  // app.enableCors({
+  //   origin: "*" , // allow frontend origins
+  //   credentials: true, // allow cookies
+  //   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  //   preflightContinue: false,
+  //   optionsSuccessStatus: 204,
+  //   maxAge: 86400, // 24 hours
+  // });
   
   app.use(helmet());
   app.use(cookieParser());
