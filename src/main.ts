@@ -15,7 +15,7 @@ dns.setDefaultResultOrder('ipv4first');
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000"], // allow frontend origins
+    origin: ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "https://seven-oy-crm-backned-1.onrender.com"], // allow frontend origins
     credentials: true, // allow cookies
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     preflightContinue: false,
