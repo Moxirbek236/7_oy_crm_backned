@@ -1,44 +1,47 @@
-name: Keep Render Alive
+name: Keep Render Alive (Infinite Chain)
 
 on:
-  schedule:
-    # Har 5 daqiqada ishga tushadi (Render Free Plan 15 daqiqa sleep threshold)
-    - cron: "*/5 * * * *"
-  workflow_dispatch:
-    # Qo'lda ishga tushirish imkoniyati
+  workflow_dispatch: # Birinchi marta Actions bo'limidan qo'lda ishga tushirish uchun
 
 jobs:
   ping-render:
     name: Ping Render API Health Endpoint
     runs-on: ubuntu-latest
-    timeout-minutes: 2
 
     steps:
       - name: Check required secrets
         id: check-secrets
         run: |
-          if [ -z "${{ secrets.RENDER_API_URL }}" ]; then
-            echo "::error::RENDER_API_URL secret is not configured!"
-            echo "::warning::Please add RENDER_API_URL to GitHub repository secrets."
+          if [ -z "${{ secrets.MY_PAT_TOKEN }}" ]; then
+            echo "::error::MY_PAT_TOKEN secret topilmadi! Iltimos, GitHub repository secrets'ga qo'shing."
             exit 1
           fi
-          echo "RENDER_API_URL is configured: ${{ secrets.RENDER_API_URL }}"
 
-      - name: Ping health endpoint with retry
-        id: ping
+      - name: Run Infinite Loop for 5h 55m
         run: |
-          HEALTH_URL="${{ secrets.RENDER_API_URL }}/api/v1/health"
-          MAX_RETRIES=3
-          RETRY_DELAY=5
-          attempt=1
+          # Sizning shaxsiy Render URL manzilingiz
+          HEALTH_URL="https://seven-oy-crm-backned-1.onrender.com"
+          
+          start_time=$(date +%s)
+          max_duration=21300 # 5 soat 55 minut (soniyalarda)
+          
+          echo "🚀 Render'ni uyg'oq ushlash zanjiri boshlandi..."
 
-          while [ $attempt -le $MAX_RETRIES ]; do
+          while true; do
+            current_time=$(date +%s)
+            elapsed=$(( current_time - start_time ))
+
+            if [ $elapsed -ge $max_duration ]; then
+              echo "⏳ 5 soat 55 minut tugadi. Navbatdagi zanjirga o'tamiz."
+              break
+            fi
+
             echo "==================================="
-            echo "🔄 Keep Render Alive - Attempt ${attempt}/${MAX_RETRIES}"
             echo "📅 Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
             echo "🌐 Target URL: ${HEALTH_URL}"
             echo "==================================="
 
+            # Loyihangizni ping qilish
             HTTP_RESPONSE=$(curl -sS \
               --max-time 15 \
               --connect-timeout 10 \
@@ -48,70 +51,26 @@ jobs:
               "${HEALTH_URL}" 2>&1)
 
             CURL_EXIT_CODE=$?
-
             echo "📊 HTTP Status Code: ${HTTP_RESPONSE}"
             echo "🔚 Curl Exit Code: ${CURL_EXIT_CODE}"
 
-            # Network xatosi
-            if [ $CURL_EXIT_CODE -ne 0 ]; then
-              echo "::warning::❌ Network error (exit code: ${CURL_EXIT_CODE})"
-              case $CURL_EXIT_CODE in
-                6)  echo "::error::Could not resolve hostname. Check RENDER_API_URL secret." ;;
-                7)  echo "::error::Failed to connect to server. Service may be down." ;;
-                28) echo "::error::Connection timed out. Service is not responding." ;;
-                *)  echo "::error::Unknown curl error occurred." ;;
-              esac
-
-              if [ $attempt -lt $MAX_RETRIES ]; then
-                echo "⏳ Waiting ${RETRY_DELAY}s before retry..."
-                sleep $RETRY_DELAY
-                attempt=$((attempt + 1))
-                continue
-              fi
-
-              echo "::error::❌ All ${MAX_RETRIES} attempts failed due to network errors."
-              exit 1
+            if [ $CURL_EXIT_CODE -eq 0 ] && [ "$HTTP_RESPONSE" = "200" ]; then
+              echo "::notice::✅ Health check passed! Server uyg'oq."
+            else
+              echo "::warning::⚠️ Ping muvaffaqiyatsiz bo'ldi (yoki server hali yuklanmoqda), lekin sikl davom etadi..."
             fi
 
-            # HTTP status kodini tekshirish
-            if [ "$HTTP_RESPONSE" != "200" ]; then
-              echo "::error::❌ Health check failed with status ${HTTP_RESPONSE}"
-              if [ -f /tmp/render-health-response.json ]; then
-                echo "📄 Response body:"
-                cat /tmp/render-health-response.json | head -c 500
-              fi
-
-              if [ $attempt -lt $MAX_RETRIES ]; then
-                echo "⏳ Waiting ${RETRY_DELAY}s before retry..."
-                sleep $RETRY_DELAY
-                attempt=$((attempt + 1))
-                continue
-              fi
-
-              echo "::error::❌ All ${MAX_RETRIES} attempts failed with non-200 status codes."
-              exit 1
-            fi
-
-            # Muvaffaqiyatli
-            echo "::notice::✅ Health check passed! HTTP 200 OK (Attempt ${attempt}/${MAX_RETRIES})"
-
-            if [ -f /tmp/render-health-response.json ]; then
-              echo ""
-              echo "📦 Response data:"
-              cat /tmp/render-health-response.json | python3 -m json.tool 2>/dev/null || cat /tmp/render-health-response.json
-            fi
-
-            # Muvaffaqiyatli bo'ldi, loop dan chiq
-            break
+            # Har 5 daqiqada (300 soniya) bitta ping jo'natish
+            sleep 300
           done
 
-      - name: Send notification on failure
-        if: failure()
+      - name: Trigger Next Chain Link
+        if: always() # Har qanday holatda ham (xatolik bo'lsa ham) zanjir uzilmasligi shart
         run: |
-          echo "::error::=========================================="
-          echo "::error::🚨 RENDER SERVICE PING FAILED!"
-          echo "::error::URL: ${{ secrets.RENDER_API_URL }}/api/v1/health"
-          echo "::error::Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          echo "::error::=========================================="
-          echo "::warning::Check Render dashboard: https://dashboard.render.com"
-          echo "::warning::Check GitHub Actions logs for details."
+          echo "🔄 Keyingi workflow chaqirilmoqda..."
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.MY_PAT_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/keep_render_alive.yml/dispatches \
+            -d '{"ref":"'${{ github.ref_name }}'"}'
+          echo "✅ Keyingi zanjir muvaffaqiyatli zaryadlandi."
