@@ -1,7 +1,7 @@
 name: Keep Render Alive (Infinite Chain)
 
 on:
-  workflow_dispatch: # Birinchi marta Actions bo'limidan qo'lda ishga tushirish uchun
+  workflow_dispatch:
 
 jobs:
   ping-render:
