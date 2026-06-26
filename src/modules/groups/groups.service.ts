@@ -12,7 +12,7 @@ import { FindAllGroupsDto } from "./dto/query.dto";
 
 @Injectable()
 export class GroupsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
   async create(payload: CreateGroupDto) {
     const timeToMinutes = (time: string) => {
       const [hours, minutes] = time.split(":").map(Number);
@@ -138,17 +138,17 @@ export class GroupsService {
         end_date: computedEndDate,
         teachersGroups: payload.teachers?.length
           ? {
-              create: payload.teachers?.map((teacher) => ({
-                teacher_id: teacher,
-              })),
-            }
+            create: payload.teachers?.map((teacher) => ({
+              teacher_id: teacher,
+            })),
+          }
           : undefined,
         studentGroups: payload.students?.length
           ? {
-              create: payload.students?.map((student) => ({
-                student_id: student,
-              })),
-            }
+            create: payload.students?.map((student) => ({
+              student_id: student,
+            })),
+          }
           : undefined,
       },
     });
@@ -310,6 +310,7 @@ export class GroupsService {
             id: true,
             name: true,
             duration_hours: true,
+            duration_month: true,
           },
         },
       },
@@ -331,9 +332,9 @@ export class GroupsService {
         status: group.status,
         created_at: group.created_at,
         teachers: group.teachersGroups?.map((g) => g.teacher) || [],
-        students: group.studentGroups?.length || 0,
-        course: group.course.name,
-        course_duration: group.course.duration_hours,
+        students: group.studentGroups?.map(s => s.students) || [],
+        student_count: group.studentGroups?.length || 0,
+        course: group.course,
         rooms: group.rooms.name,
       })),
       pagination: {
