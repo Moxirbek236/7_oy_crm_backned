@@ -37,11 +37,11 @@ export class AuthController {
     const result = await this.authService.login(dto);
     res.cookie("token", result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     });
-    return { success: true, role: result.role };
+    return { success: true, role: result.role, accessToken: result.accessToken };
   }
 
   @Post("logout")
@@ -50,8 +50,8 @@ export class AuthController {
   async logout(@Res({ passthrough: true }) res: any) {
     res.cookie("token", "", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
       maxAge: 0,
     });
     return { success: true, message: "Logged out successfully" };
