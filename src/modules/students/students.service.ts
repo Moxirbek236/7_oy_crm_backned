@@ -532,6 +532,69 @@ export class StudentsService {
     };
   }
 
+  async getGroupLessonsLite(req, groupId: number) {
+    const studentId = req.user?.sub ?? req.user?.id;
+
+    const studentGroup = await this.prisma.studentGroup.findFirst({
+      where: { student_id: studentId, group_id: groupId, status: "active" },
+    });
+    if (!studentGroup) {
+      throw new NotFoundException("Group not found or not assigned to you");
+    }
+
+    const lessons = await this.prisma.lesson.findMany({
+      where: { group_id: groupId, status: "active" },
+      orderBy: { date: "desc" },
+      select: {
+        id: true,
+        topic: true,
+        date: true,
+        _count: { select: { videos: true } }
+      }
+    });
+
+    const exams = await this.prisma.exam.findMany({
+      where: { group_id: groupId },
+      orderBy: { start_date: "desc" },
+      select: {
+        id: true,
+        title: true,
+        start_date: true
+      }
+    });
+
+    const fmtDate = (d: Date) => {
+      if (!d) return '';
+      const months = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+      return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]}, ${d.getFullYear()}`;
+    };
+
+    const formattedLessons = lessons.map(l => ({
+      id: l.id,
+      topic: l.topic,
+      dueDate: l.date ? fmtDate(l.date) : "-",
+      hasVideo: l._count.videos > 0
+    }));
+
+    const formattedExams = exams.map(e => ({
+      id: e.id,
+      topic: e.title,
+      dueDate: e.start_date ? fmtDate(e.start_date) : "-",
+      hasVideo: false
+    }));
+
+    const all = [...formattedLessons, ...formattedExams].sort((a, b) => {
+      if (!a.dueDate || a.dueDate === "-") return 1;
+      if (!b.dueDate || b.dueDate === "-") return -1;
+      return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+    });
+
+    return {
+      success: true,
+      data: all
+    };
+  }
+
   async getStudentLessonDetails(req, groupId: number, lessonId: number) {
     const studentId = req.user?.sub ?? req.user?.id;
 
