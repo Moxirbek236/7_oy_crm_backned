@@ -550,7 +550,7 @@ export class StudentsService {
       throw new NotFoundException("Group not found or not assigned to you");
     }
 
-    const lesson = await this.prisma.lesson.findUnique({
+    const lesson = await this.prisma.lesson.findFirst({
       where: { id: lessonId, group_id: groupId },
       include: {
         homeWorks: {
@@ -560,7 +560,7 @@ export class StudentsService {
               include: {
                 homeWorkResults: {
                   include: {
-                    techer: { select: { id: true, full_name: true } }
+                    teachers: { select: { id: true, full_name: true } }
                   }
                 }
               }
@@ -607,8 +607,8 @@ export class StudentsService {
       homeworkChats.push({
         id: result.id + 100000,
         sender: {
-          id: result.techer?.id || 0,
-          firstName: result.techer?.full_name || "Teacher",
+          id: result.teachers?.id || 0,
+          firstName: result.teachers?.full_name || "Teacher",
           lastName: "",
           userType: 1
         },
