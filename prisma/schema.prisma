@@ -59,6 +59,34 @@ enum ExamStatus {
   NOT_DONE
 }
 
+model Center {
+  id         Int      @id @default(autoincrement())
+  name       String
+  address    String?
+  status     Status   @default(active)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  branches Branch[]
+}
+
+model Branch {
+  id         Int      @id @default(autoincrement())
+  center_id  Int      @default(1)
+  name       String
+  address    String?
+  status     Status   @default(active)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  center   Center     @relation(fields: [center_id], references: [id])
+  groups   Groups[]
+  students Students[]
+  teachers Teachers[]
+
+  @@index([center_id])
+}
+
 model User {
   id         Int      @id @default(autoincrement())
   full_name  String
@@ -92,6 +120,7 @@ model Students {
   status          StudentStatus    @default(active)
   xp              Int              @default(0)
   coins           Int              @default(0)
+  branch_id       Int              @default(1)
   created_at      DateTime         @default(now())
   updated_at      DateTime         @default(now())
   studentGroups   StudentGroup[]
@@ -99,10 +128,12 @@ model Students {
   homeWorkAnswers HomeWorkAnswer[]
   examAnswers     ExamAnswer[]
   purchases       Purchase[]
+  branch          Branch           @relation(fields: [branch_id], references: [id])
 
   @@index([status])
   @@index([full_name])
   @@index([phone])
+  @@index([branch_id])
 }
 
 model Teachers {
@@ -114,6 +145,7 @@ model Teachers {
   address    String?
   photo      String?
   status     Status   @default(active)
+  branch_id  Int      @default(1)
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
 
@@ -124,10 +156,12 @@ model Teachers {
   teachersGroups  TeachersGroup[]
   videos          Videos[]
   exams           Exam[]
+  branch          Branch           @relation(fields: [branch_id], references: [id])
 
   @@index([status])
   @@index([full_name])
   @@index([phone])
+  @@index([branch_id])
 }
 
 model Courses {
@@ -176,8 +210,11 @@ model Groups {
   created_at   DateTime    @default(now())
   updated_at   DateTime    @default(now())
 
+  branch_id      Int         @default(1)
+
   course         Courses         @relation(fields: [course_id], references: [id])
   rooms          Rooms           @relation(fields: [room_id], references: [id])
+  branch         Branch          @relation(fields: [branch_id], references: [id])
   studentGroups  StudentGroup[]
   lessons        Lesson[]
   homeWorks      HomeWork[]
@@ -190,6 +227,7 @@ model Groups {
   @@index([name])
   @@index([course_id])
   @@index([room_id])
+  @@index([branch_id])
 }
 
 model TeachersGroup {

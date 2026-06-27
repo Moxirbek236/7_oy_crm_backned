@@ -687,11 +687,12 @@ export class StudentsService {
       });
     }
 
+    const deadlineTime = hw ? new Date(new Date(hw.created_at).getTime() + 24 * 60 * 60 * 1000) : null;
     const homeworkInfo = hw ? {
       id: hw.id,
       desc: hw.description,
       attachments: hw.file ? [hw.file] : [],
-      deadline: hw.created_at, 
+      deadline: deadlineTime, 
       availableForSubmit: true,
       deadlinePassed: false
     } : null;
@@ -857,6 +858,137 @@ export class StudentsService {
         teachers: g.teachersGroups.map((tg) => tg.teacher),
         teachers_count: g.teachersGroups.length,
       })),
+    };
+  }
+
+  async getMyDashboard(req) {
+    const studentId = req.user?.sub ?? req.user?.id;
+    if (!studentId) throw new BadRequestException("User ID not found in token");
+
+    const student = await this.prisma.students.findUnique({
+      where: { id: studentId },
+      select: { xp: true, coins: true },
+    });
+
+    if (!student) throw new NotFoundException("Student not found");
+
+    // Dars jadvali (bugun va keyingi kunlar uchun)
+    const activeGroups = await this.prisma.studentGroup.findMany({
+      where: { student_id: studentId, status: "active" },
+      include: {
+        groups: {
+          select: {
+            id: true,
+            name: true,
+            start_time: true,
+            week_day: true,
+            rooms: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    const level = Math.floor(student.xp / 100) + 1; // 100 xp per level
+    const progress = student.xp % 100;
+
+    return {
+      success: true,
+      data: {
+        coins: student.coins,
+        xp: student.xp,
+        level,
+        progress,
+        schedule: activeGroups.map((sg) => sg.groups),
+      },
+    };
+  }
+
+  async getMyStats(req) {
+    const studentId = req.user?.sub ?? req.user?.id;
+    if (!studentId) throw new BadRequestException("User ID not found in token");
+
+    // Mock stats for now, later we can calculate real ones from Attendance/Homework answers
+    const student = await this.prisma.students.findUnique({
+      where: { id: studentId },
+      select: { xp: true, coins: true },
+    });
+
+    if (!student) throw new NotFoundException("Student not found");
+
+    const level = Math.floor(student.xp / 100) + 1;
+
+    return {
+      success: true,
+      data: {
+        totalXP: student.xp,
+        totalCoins: student.coins,
+        level,
+        breakdown: [
+          { name: "Darsga ishtirok bo'yicha XP", value: Math.floor(student.xp * 0.4) },
+          { name: "Uy vazifasi bo'yicha XP", value: Math.floor(student.xp * 0.3) },
+          { name: "Imtihon bo'yicha XP", value: Math.floor(student.xp * 0.2) },
+          { name: "Admin bonuslari", value: Math.floor(student.xp * 0.1) },
+        ],
+      },
+    };
+  }
+
+  async getMyRating(req, filter: "group" | "branch" | "center" = "group", period: string = "all") {
+    const studentId = req.user?.sub ?? req.user?.id;
+    if (!studentId) throw new BadRequestException("User ID not found in token");
+
+    const me = await this.prisma.students.findUnique({
+      where: { id: studentId },
+      include: { studentGroups: true },
+    });
+
+    if (!me) throw new NotFoundException("Student not found");
+
+    let whereClause: any = { status: "active" };
+
+    if (filter === "group") {
+      const groupIds = me.studentGroups.map((g) => g.group_id);
+      if (groupIds.length > 0) {
+        whereClause.studentGroups = { some: { group_id: { in: groupIds } } };
+      }
+    } else if (filter === "branch") {
+      whereClause.branch_id = me.branch_id;
+    } else if (filter === "center") {
+      // Find branch's center and then all branches in that center
+      const branch = await this.prisma.branch.findUnique({ where: { id: me.branch_id || 1 } });
+      if (branch) {
+        const branches = await this.prisma.branch.findMany({ where: { center_id: branch.center_id } });
+        whereClause.branch_id = { in: branches.map((b) => b.id) };
+      }
+    }
+
+    const students = await this.prisma.students.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        full_name: true,
+        xp: true,
+        photo: true,
+        studentGroups: {
+          take: 1,
+          select: { groups: { select: { name: true } } },
+        },
+      },
+      orderBy: { xp: "desc" },
+    });
+
+    const ranking = students.map((s, idx) => ({
+      rank: idx + 1,
+      id: s.id,
+      full_name: s.full_name,
+      xp: s.xp,
+      photo: s.photo,
+      group_name: s.studentGroups[0]?.groups?.name || "-",
+    }));
+
+    return {
+      success: true,
+      data: ranking,
     };
   }
 

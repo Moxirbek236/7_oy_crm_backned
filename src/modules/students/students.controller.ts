@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
   Delete,
   UseInterceptors,
@@ -98,6 +97,31 @@ export class StudentsController {
   @Get("my/group/:id/teachers")
   getGroupTeachers(@Req() req: any, @Param("id", ParseIntPipe) id: number) {
     return this.studentsService.getGroupTeachers(req, id);
+  }
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - My dashboard` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/dashboard")
+  getMyDashboard(@Req() req: any) {
+    return this.studentsService.getMyDashboard(req);
+  }
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - My stats` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/stats")
+  getMyStats(@Req() req: any) {
+    return this.studentsService.getMyStats(req);
+  }
+
+  @ApiOperation({ summary: `${UserRole.STUDENT} - My rating` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/rating")
+  getMyRating(
+    @Req() req: any,
+    @Query("filter") filter: "group" | "branch" | "center",
+    @Query("period") period: "weekly" | "monthly" | "3month" | "all"
+  ) {
+    return this.studentsService.getMyRating(req, filter, period);
   }
 
   @ApiOperation({ summary: `${UserRole.STUDENT} - Group lessons` })
