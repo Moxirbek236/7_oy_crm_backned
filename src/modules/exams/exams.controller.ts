@@ -52,7 +52,7 @@ export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}
 
   @ApiOperation({ summary: "Yangi imtihon yaratish (ADMIN, TEACHER)" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Post()
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -78,7 +78,7 @@ export class ExamsController {
   @ApiOperation({
     summary: "Guruhga tegishli imtihonlar (TEACHER, ADMIN, STUDENT)",
   })
-  @Roles(
+  @Roles(UserRole.CREATOR, 
     UserRole.SUPERADMIN,
     UserRole.ADMIN,
     UserRole.TEACHER,
@@ -93,7 +93,7 @@ export class ExamsController {
   }
 
   @ApiOperation({ summary: "Imtihon topshiriqlarini ko'rish (TEACHER, ADMIN)" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get(":examId/submissions")
   getSubmissions(
     @Param("examId", ParseIntPipe) examId: number,
@@ -103,7 +103,7 @@ export class ExamsController {
   }
 
   @ApiOperation({ summary: "Imtihonni baholash (TEACHER, ADMIN)" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Post("submissions/:answerId/grade")
   gradeSubmission(
     @Param("answerId") answerId: string,
@@ -121,7 +121,7 @@ export class ExamsController {
   @ApiOperation({
     summary: "Imtihon natijalarini e'lon qilish (TEACHER, ADMIN)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Post(":examId/publish")
   publishExam(
     @Param("examId", ParseIntPipe) examId: number,
@@ -131,7 +131,7 @@ export class ExamsController {
   }
 
   @ApiOperation({ summary: "Imtihonni tahrirlash (TEACHER, ADMIN)" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Put(":examId")
   @UseInterceptors(
     FileInterceptor("file", {
@@ -165,7 +165,7 @@ export class ExamsController {
   }
 
   @ApiOperation({ summary: "Imtihonni o'chirish (TEACHER, ADMIN)" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Delete(":examId")
   deleteExam(
     @Param("examId", ParseIntPipe) examId: number,

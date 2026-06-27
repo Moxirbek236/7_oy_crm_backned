@@ -33,4 +33,11 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   address: string;
+
+  @ApiProperty({ type: [Number], example: [1, 2] })
+  branchIds: number[];
+
+  @ApiProperty({ enum: ["ADMIN", "CREATOR", "SUPERADMIN"], example: "ADMIN" })
+  @IsString()
+  role: "ADMIN" | "CREATOR" | "SUPERADMIN";
 }

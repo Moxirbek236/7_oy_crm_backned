@@ -38,11 +38,15 @@ export class UsersService {
     const hashPass = await bcrypt.hash(payload.password, 10);
 
     try {
+      const { branchIds, role, ...restPayload } = payload;
       await this.prisma.user.create({
         data: {
-          ...payload,
-          role: UserRole.ADMIN,
+          ...restPayload,
+          role: role as UserRole || UserRole.ADMIN,
           password: hashPass,
+          branches: {
+            connect: branchIds?.map(id => ({ id })) || []
+          }
         },
       });
     } catch (error) {
@@ -124,6 +128,7 @@ export class UsersService {
         status: true,
         created_at: true,
         updated_at: true,
+        branches: { select: { id: true, name: true } },
       },
     });
 
@@ -152,6 +157,8 @@ export class UsersService {
         email: true,
         phone: true,
         address: true,
+        role: true,
+        branches: { select: { id: true, name: true } },
       },
     });
     if (!user) {
@@ -164,12 +171,20 @@ export class UsersService {
   }
 
   async update(id: number, payload: UpdateUserDto) {
+    const { branchIds, role, ...restPayload } = payload;
     const data: any = {
-      ...payload,
-      role: UserRole.ADMIN,
+      ...restPayload,
     };
+    if (role) {
+      data.role = role as UserRole;
+    }
     if (payload.password) {
       data.password = await bcrypt.hash(payload.password, 10);
+    }
+    if (branchIds) {
+      data.branches = {
+        set: branchIds.map(bId => ({ id: bId }))
+      };
     }
     await this.prisma.user.update({
       where: { id },

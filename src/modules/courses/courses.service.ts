@@ -23,9 +23,13 @@ export class CoursesService {
       throw new ConflictException("Course already exists");
     }
 
+    const { branchIds, ...restPayload } = payload;
     const res = await this.prisma.courses.create({
       data: {
-        ...payload,
+        ...restPayload,
+        branches: branchIds?.length
+          ? { connect: branchIds.map(id => ({ id })) }
+          : undefined,
       },
     });
 
@@ -78,6 +82,7 @@ export class CoursesService {
         skip,
         take: limit,
         orderBy: { id: "asc" },
+        include: { branches: { select: { id: true, name: true } } },
       }),
       this.prisma.courses.count({ where }),
     ]);
@@ -95,7 +100,10 @@ export class CoursesService {
   }
 
   async findOne(id: number) {
-    const course = await this.prisma.courses.findUnique({ where: { id } });
+    const course = await this.prisma.courses.findUnique({
+      where: { id },
+      include: { branches: { select: { id: true, name: true } } },
+    });
 
     if (!course) {
       throw new BadRequestException("Course not fount");
@@ -113,9 +121,15 @@ export class CoursesService {
       throw new BadRequestException("Course not fount");
     }
 
+    const { branchIds, ...restPayload } = payload;
     await this.prisma.courses.update({
       where: { id },
-      data: payload,
+      data: {
+        ...restPayload,
+        branches: branchIds
+          ? { set: branchIds.map(id => ({ id })) }
+          : undefined,
+      },
     });
 
     return {

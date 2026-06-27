@@ -78,7 +78,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Yangi uyga vazifa yaratish (ADMIN, SUPERADMIN, TEACHER)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Post()
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -112,7 +112,7 @@ export class HomeWorksController {
 
   // ─── BARCHA (admin) ───────────────────────────────────────────────────────
   @ApiOperation({ summary: "Barcha uyga vazifalar (SUPERADMIN, ADMIN)" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get()
   findAll(@Req() req: Request) {
     return this.homeWorksService.findAll(req["user"]);
@@ -122,7 +122,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Guruhga tegishli uyga vazifalar (ADMIN, SUPERADMIN, TEACHER, STUDENT)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
   @Get("group/:groupId")
   findAllByGroup(
     @Param("groupId", ParseIntPipe) groupId: number,
@@ -135,7 +135,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Homework topshiriqlarini ko'rish (TEACHER, ADMIN, SUPERADMIN)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get(":hwId/submissions")
   getSubmissions(
     @Param("hwId", ParseIntPipe) hwId: number,
@@ -148,7 +148,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Bitta student topshirig'ini ko'rish (TEACHER, ADMIN, SUPERADMIN)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get(":hwId/student/:studentId")
   getStudentSubmission(
     @Param("hwId", ParseIntPipe) hwId: number,
@@ -166,7 +166,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Topshiriqni baholash (TEACHER, ADMIN, SUPERADMIN)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Post(":hwId/grade/:answerId")
   gradeSubmission(
     @Param("hwId", ParseIntPipe) hwId: number,
@@ -186,7 +186,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Student uyga vazifa topshiradi (STUDENT, TEACHER, ADMIN)",
   })
-  @Roles(
+  @Roles(UserRole.CREATOR, 
     UserRole.SUPERADMIN,
     UserRole.ADMIN,
     UserRole.TEACHER,
@@ -224,7 +224,7 @@ export class HomeWorksController {
 
   // ─── BITTA HOMEWORK ───────────────────────────────────────────────────────
   @ApiOperation({ summary: "Bitta uyga vazifa (ADMIN, SUPERADMIN, TEACHER)" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
     return this.homeWorksService.findOne(id, req["user"]);
@@ -234,7 +234,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Uyga vazifani yangilash (ADMIN, SUPERADMIN, TEACHER)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Put(":id")
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -271,7 +271,7 @@ export class HomeWorksController {
   @ApiOperation({
     summary: "Uyga vazifani o'chirish (ADMIN, SUPERADMIN, TEACHER)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Delete(":id")
   remove(@Param("id", ParseIntPipe) id: number, @Req() req: Request) {
     return this.homeWorksService.remove(id, req["user"]);

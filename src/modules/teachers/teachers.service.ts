@@ -81,13 +81,15 @@ export class TeachersService {
           phone: payload.phone,
           address: payload.address,
           password: passHash,
-          photo: filename ?? null,
           teachersGroups: groupIds.length
             ? {
                 create: groupIds.map((groupId) => ({
                   group_id: groupId,
                 })),
               }
+            : undefined,
+          branches: payload.branchIds?.length
+            ? { connect: payload.branchIds.map((id) => ({ id })) }
             : undefined,
         },
       });
@@ -179,6 +181,7 @@ export class TeachersService {
             },
           },
         },
+        branches: { select: { id: true, name: true } },
       },
     });
 
@@ -226,6 +229,7 @@ export class TeachersService {
             },
           },
         },
+        branches: { select: { id: true, name: true } },
       },
     });
     if (!teacher) {
@@ -241,7 +245,7 @@ export class TeachersService {
     const userId = req.user?.sub ?? req.user?.id;
     const role = req.user?.role;
 
-    if (role == "SUPERADMIN" || role == "ADMIN") {
+    if (role == "CREATOR" || role == "SUPERADMIN" || role == "ADMIN") {
       throw new NotFoundException("This is for teachers only");
     }
 
@@ -355,7 +359,7 @@ export class TeachersService {
     }
 
     const role = req.user?.role;
-    if (role === "SUPERADMIN" || role === "ADMIN") {
+    if (role === "CREATOR" || role === "SUPERADMIN" || role === "ADMIN") {
       const data: any = {};
       if (payload.full_name) data.full_name = payload.full_name;
       if (payload.address !== undefined) data.address = payload.address;
@@ -401,7 +405,7 @@ export class TeachersService {
     }
 
     const role = req.user?.role;
-    if (role === "SUPERADMIN" || role === "ADMIN") {
+    if (role === "CREATOR" || role === "SUPERADMIN" || role === "ADMIN") {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
       });
@@ -436,6 +440,7 @@ export class TeachersService {
             },
           },
         },
+        branches: { select: { id: true, name: true } },
       },
     });
 
@@ -512,7 +517,7 @@ export class TeachersService {
       passHash = await bcrypt.hash(payload.password, 10);
     }
 
-    const { groups: _, password: __, ...teacherData } = payload;
+    const { groups: _, password: __, branchIds: ___, ...teacherData } = payload;
 
     await this.prisma.teachers.update({
       where: { id },
@@ -527,6 +532,9 @@ export class TeachersService {
                 group_id: groupId,
               })),
             }
+          : undefined,
+        branches: payload.branchIds
+          ? { set: payload.branchIds.map((id) => ({ id })) }
           : undefined,
       },
     });

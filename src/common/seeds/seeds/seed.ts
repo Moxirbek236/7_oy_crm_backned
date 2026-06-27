@@ -50,23 +50,38 @@ export class TestSeed {
     });
     console.log(`✅ Branches: ${branch1.name}, ${branch2.name}`);
 
-    // ── 3. Mavjud Students uchun branch_id = 1 default qilish ────────────────
-    await this.prisma.students.updateMany({
-      where: { branch_id: undefined as any },
-      data: { branch_id: 1 },
+    // ── 3. Mavjud Students uchun branch qo'shish ────────────────
+    const students = await this.prisma.students.findMany({
+      where: { branches: { none: {} } }
     });
+    for (const s of students) {
+      await this.prisma.students.update({
+        where: { id: s.id },
+        data: { branches: { connect: { id: 1 } } }
+      });
+    }
 
-    // ── 4. Mavjud Teachers uchun branch_id = 1 ───────────────────────────────
-    await this.prisma.teachers.updateMany({
-      where: { branch_id: undefined as any },
-      data: { branch_id: 1 },
+    // ── 4. Mavjud Teachers uchun branch qo'shish ───────────────────────────────
+    const teachers = await this.prisma.teachers.findMany({
+      where: { branches: { none: {} } }
     });
+    for (const t of teachers) {
+      await this.prisma.teachers.update({
+        where: { id: t.id },
+        data: { branches: { connect: { id: 1 } } }
+      });
+    }
 
-    // ── 5. Mavjud Groups uchun branch_id = 1 ─────────────────────────────────
-    await this.prisma.groups.updateMany({
-      where: { branch_id: undefined as any },
-      data: { branch_id: 1 },
+    // ── 5. Mavjud Userlar (Admin/Superadmin) uchun branch qo'shish ─────────────────────────────────
+    const users = await this.prisma.user.findMany({
+      where: { branches: { none: {} } }
     });
+    for (const u of users) {
+      await this.prisma.user.update({
+        where: { id: u.id },
+        data: { branches: { connect: { id: 1 } } }
+      });
+    }
 
     // ── 6. Demo Products (Do'kon) ─────────────────────────────────────────────
     const products = [

@@ -27,29 +27,29 @@ import { FindAllRoomsDto } from "./dto/query.dto";
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Post()
   create(@Body() payload: CreateRoomDto) {
     return this.roomsService.create(payload);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get()
   findAll(@Query() query: FindAllRoomsDto) {
     return this.roomsService.findAll(query);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get(["one/:id", ":id"])
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.roomsService.findOne(id);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Put(":id")
   update(
     @Param("id", ParseIntPipe) id: number,
@@ -58,8 +58,8 @@ export class RoomsController {
     return this.roomsService.update(id, payload);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Delete(":id")
   remove(@Param("id", ParseIntPipe) id: number) {
     return this.roomsService.remove(id);

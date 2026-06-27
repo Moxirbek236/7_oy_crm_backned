@@ -28,7 +28,7 @@ import { diskStorage } from "multer";
 export class VideosController {
   constructor(private readonly videosService: VideosService) {}
 
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Post()
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -51,7 +51,7 @@ export class VideosController {
     return this.videosService.create(dto, req.user, file?.filename, file?.size);
   }
 
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
   @Get("group/:groupId")
   findAllByGroup(
     @Param("groupId", ParseIntPipe) groupId: number,
@@ -60,7 +60,7 @@ export class VideosController {
     return this.videosService.findAllByGroup(groupId, req.user);
   }
 
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Delete(":id")
   remove(@Param("id", ParseIntPipe) id: number, @Req() req: any) {
     return this.videosService.remove(id, req.user);

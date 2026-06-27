@@ -1,6 +1,6 @@
 import { ApiProperty, PartialType } from "@nestjs/swagger";
 import { CreateUserDto } from "./create-user.dto";
-import { IsEnum, IsOptional } from "class-validator";
+import { IsEnum, IsOptional, IsString } from "class-validator";
 import { Status } from "@prisma/client";
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
@@ -8,4 +8,5 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   @IsEnum(Status)
   status?: Status;
+
 }

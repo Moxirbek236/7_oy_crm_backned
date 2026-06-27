@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum UserRole {
+  CREATOR
   SUPERADMIN
   ADMIN
   TEACHER
@@ -81,8 +82,12 @@ model Branch {
 
   center   Center     @relation(fields: [center_id], references: [id])
   groups   Groups[]
+  
+  users    User[]
   students Students[]
   teachers Teachers[]
+  courses  Courses[]
+  rooms    Rooms[]
 
   @@index([center_id])
 }
@@ -100,6 +105,7 @@ model User {
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
 
+  branches        Branch[]
   lessons         Lesson[]
   attendances     Attendance[]
   homeWorks       HomeWork[]
@@ -120,20 +126,19 @@ model Students {
   status          StudentStatus    @default(active)
   xp              Int              @default(0)
   coins           Int              @default(0)
-  branch_id       Int              @default(1)
   created_at      DateTime         @default(now())
   updated_at      DateTime         @default(now())
+
+  branches        Branch[]
   studentGroups   StudentGroup[]
   attendances     Attendance[]
   homeWorkAnswers HomeWorkAnswer[]
   examAnswers     ExamAnswer[]
   purchases       Purchase[]
-  branch          Branch           @relation(fields: [branch_id], references: [id])
 
   @@index([status])
   @@index([full_name])
   @@index([phone])
-  @@index([branch_id])
 }
 
 model Teachers {
@@ -145,10 +150,10 @@ model Teachers {
   address    String?
   photo      String?
   status     Status   @default(active)
-  branch_id  Int      @default(1)
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
 
+  branches        Branch[]
   lessons         Lesson[]
   attendances     Attendance[]
   homeWorks       HomeWork[]
@@ -156,12 +161,10 @@ model Teachers {
   teachersGroups  TeachersGroup[]
   videos          Videos[]
   exams           Exam[]
-  branch          Branch           @relation(fields: [branch_id], references: [id])
 
   @@index([status])
   @@index([full_name])
   @@index([phone])
-  @@index([branch_id])
 }
 
 model Courses {
@@ -175,7 +178,8 @@ model Courses {
   created_at     DateTime    @default(now())
   updated_at     DateTime    @default(now())
 
-  groups Groups[]
+  branches Branch[]
+  groups   Groups[]
 
   @@index([status])
   @@index([name])
@@ -189,7 +193,8 @@ model Rooms {
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
 
-  groups Groups[]
+  branches Branch[]
+  groups   Groups[]
 
   @@index([status])
   @@index([name])

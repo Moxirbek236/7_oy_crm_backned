@@ -27,29 +27,29 @@ import { FindAllStudentGroupDto } from "./dto/query.dto";
 export class StudentGroupController {
   constructor(private readonly studentGroupService: StudentGroupService) {}
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Post()
   create(@Body() payload: CreateStudentGroupDto) {
     return this.studentGroupService.create(payload);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get()
   findAll(@Query() query: FindAllStudentGroupDto) {
     return this.studentGroupService.findAll(query);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.studentGroupService.findOne(id);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Put(":id")
   update(
     @Param("id", ParseIntPipe) id: number,
@@ -58,8 +58,8 @@ export class StudentGroupController {
     return this.studentGroupService.update(id, payload);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Delete(":id")
   remove(@Param("id", ParseIntPipe) id: number) {
     return this.studentGroupService.remove(id);

@@ -27,29 +27,29 @@ import { FindAllCoursesDto } from "./dto/query.dto";
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Post()
   create(@Body() payload: CreateCourseDto) {
     return this.coursesService.create(payload);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get("all")
   findAll(@Query() query: FindAllCoursesDto) {
     return this.coursesService.findAll(query);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.coursesService.findOne(id);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Put(":id")
   update(
     @Param("id", ParseIntPipe) id: number,
@@ -58,8 +58,8 @@ export class CoursesController {
     return this.coursesService.update(id, payload);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Delete(":id")
   remove(@Param("id", ParseIntPipe) id: number) {
     return this.coursesService.remove(id);

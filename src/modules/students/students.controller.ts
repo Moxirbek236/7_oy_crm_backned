@@ -37,8 +37,8 @@ import { FindAllStudentsDto } from "./dto/query.dto";
 export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Post()
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -75,9 +75,9 @@ export class StudentsController {
   }
 
   @ApiOperation({
-    summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}`,
+    summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}`,
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get("all")
   findAll(@Query() query: FindAllStudentsDto) {
     return this.studentsService.findAll(query);
@@ -165,16 +165,16 @@ export class StudentsController {
 
   // ─── ADMIN/SOFT DELETE ENDPOINTS ────────────────────────────────────────────
   @ApiOperation({
-    summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}`,
+    summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}`,
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.studentsService.findOne(id);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Put(":id")
   @ApiConsumes("multipart/form-data")
   @ApiBody({
@@ -209,8 +209,8 @@ export class StudentsController {
     return this.studentsService.update(id, payload, file?.filename);
   }
 
-  @ApiOperation({ summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}` })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Delete(":id")
   remove(@Param("id", ParseIntPipe) id: number) {
     return this.studentsService.remove(id);

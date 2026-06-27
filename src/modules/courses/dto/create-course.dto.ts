@@ -30,4 +30,7 @@ export class CreateCourseDto {
   @IsNumber()
   @IsNotEmpty()
   duration_hours: number;
+
+  @ApiProperty({ type: [Number], example: [1, 2] })
+  branchIds?: number[];
 }

@@ -17,7 +17,7 @@ export class DashboardController {
     summary:
       "Dashboard statistikasini olish (Barcha admin/o'qituvchilar uchun)",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get("stats")
   getStats() {
     return this.dashboardService.getStats();

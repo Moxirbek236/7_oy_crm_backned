@@ -48,4 +48,14 @@ export class CreateTeacherDto {
     return [Number(value)];
   })
   groups?: number[];
+
+  @ApiProperty({ type: [Number], example: [1, 2] })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (typeof value === "string") return value.split(",").map(v => Number(v.trim()));
+    if (Array.isArray(value)) return value.map(v => Number(v));
+    return [Number(value)];
+  })
+  branchIds?: number[];
 }

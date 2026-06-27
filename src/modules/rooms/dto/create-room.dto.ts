@@ -13,4 +13,7 @@ export class CreateRoomDto {
   @Min(1)
   @Max(30)
   capacity: number;
+
+  @ApiProperty({ type: [Number], example: [1, 2] })
+  branchIds?: number[];
 }

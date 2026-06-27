@@ -23,8 +23,14 @@ export class RoomsService {
       throw new ConflictException("Room already exists");
     }
 
+    const { branchIds, ...restPayload } = payload;
     await this.prisma.rooms.create({
-      data: payload,
+      data: {
+        ...restPayload,
+        branches: branchIds?.length
+          ? { connect: branchIds.map(id => ({ id })) }
+          : undefined,
+      },
     });
 
     return {
@@ -59,6 +65,7 @@ export class RoomsService {
         skip,
         take: limit,
         orderBy: { id: "asc" },
+        include: { branches: { select: { id: true, name: true } } },
       }),
       this.prisma.rooms.count({ where }),
     ]);
@@ -76,7 +83,10 @@ export class RoomsService {
   }
 
   async findOne(id: number) {
-    const room = await this.prisma.rooms.findUnique({ where: { id } });
+    const room = await this.prisma.rooms.findUnique({
+      where: { id },
+      include: { branches: { select: { id: true, name: true } } },
+    });
 
     if (!room) {
       throw new BadRequestException("Room not fount");
@@ -94,9 +104,15 @@ export class RoomsService {
       throw new BadRequestException("Room not fount");
     }
 
+    const { branchIds, ...restPayload } = payload;
     await this.prisma.rooms.update({
       where: { id },
-      data: payload,
+      data: {
+        ...restPayload,
+        branches: branchIds
+          ? { set: branchIds.map(id => ({ id })) }
+          : undefined,
+      },
     });
 
     return {

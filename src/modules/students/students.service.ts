@@ -90,6 +90,9 @@ export class StudentsService {
               })),
             }
             : undefined,
+          branches: payload.branchIds?.length
+            ? { connect: payload.branchIds.map(id => ({ id })) }
+            : undefined,
         },
       });
     } catch (error) {
@@ -185,6 +188,7 @@ export class StudentsService {
             },
           },
         },
+        branches: { select: { id: true, name: true } },
       },
     });
 
@@ -231,6 +235,7 @@ export class StudentsService {
             },
           },
         },
+        branches: { select: { id: true, name: true } },
       },
     });
     if (!teacher) {
@@ -307,6 +312,7 @@ export class StudentsService {
       groups: _,
       password: __,
       birth_date: ___,
+      branchIds: ____,
       ...studentData
     } = payload;
 
@@ -319,11 +325,14 @@ export class StudentsService {
         birth_date,
         studentGroups: groupIds.length
           ? {
-            deleteMany: {},
-            create: groupIds.map((groupId) => ({
-              group_id: groupId,
-            })),
-          }
+              deleteMany: {},
+              create: groupIds.map((groupId) => ({
+                group_id: groupId,
+              })),
+            }
+          : undefined,
+        branches: payload.branchIds
+          ? { set: payload.branchIds.map(id => ({ id })) }
           : undefined,
       },
     });
@@ -939,7 +948,7 @@ export class StudentsService {
 
     const me = await this.prisma.students.findUnique({
       where: { id: studentId },
-      include: { studentGroups: true },
+      include: { studentGroups: true, branches: true },
     });
 
     if (!me) throw new NotFoundException("Student not found");
@@ -952,13 +961,17 @@ export class StudentsService {
         whereClause.studentGroups = { some: { group_id: { in: groupIds } } };
       }
     } else if (filter === "branch") {
-      whereClause.branch_id = me.branch_id;
+      const branchIds = me.branches.map((b) => b.id);
+      if (branchIds.length > 0) {
+        whereClause.branches = { some: { id: { in: branchIds } } };
+      }
     } else if (filter === "center") {
-      // Find branch's center and then all branches in that center
-      const branch = await this.prisma.branch.findUnique({ where: { id: me.branch_id || 1 } });
-      if (branch) {
-        const branches = await this.prisma.branch.findMany({ where: { center_id: branch.center_id } });
-        whereClause.branch_id = { in: branches.map((b) => b.id) };
+      const branchIds = me.branches.map((b) => b.id);
+      if (branchIds.length > 0) {
+        const branches = await this.prisma.branch.findMany({ where: { id: { in: branchIds } } });
+        const centerIds = branches.map(b => b.center_id);
+        const centerBranches = await this.prisma.branch.findMany({ where: { center_id: { in: centerIds } } });
+        whereClause.branches = { some: { id: { in: centerBranches.map((b) => b.id) } } };
       }
     }
 

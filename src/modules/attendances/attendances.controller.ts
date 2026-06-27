@@ -29,14 +29,14 @@ export class AttendancesController {
   @ApiOperation({
     summary: "Davomat yaratish: lesson + faqat kelgan o'quvchilar",
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Post()
   create(@Body() payload: CreateAttendanceDto, @Req() req: Request) {
     return this.attendancesService.create(payload, req["user"]);
   }
 
   @ApiOperation({ summary: "Guruh va sana bo'yicha lesson + davomat olish" })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @ApiQuery({ name: "group_id", type: Number })
   @ApiQuery({ name: "date", type: String, example: "2025-05-13" })
   @Get("by-date")
@@ -48,27 +48,27 @@ export class AttendancesController {
   }
 
   @ApiOperation({
-    summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
+    summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get()
   findAll(@Req() req: Request) {
     return this.attendancesService.findAll(req["user"]);
   }
 
   @ApiOperation({
-    summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
+    summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get(":id")
   async findOne(@Param("id", ParseIntPipe) id: number) {
     return await this.attendancesService.findOne(id);
   }
 
   @ApiOperation({
-    summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
+    summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Put(":id")
   async update(
     @Param("id", ParseIntPipe) id: number,
@@ -78,9 +78,9 @@ export class AttendancesController {
   }
 
   @ApiOperation({
-    summary: `${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
+    summary: `${UserRole.CREATOR}, ${UserRole.SUPERADMIN}, ${UserRole.ADMIN}, ${UserRole.TEACHER}`,
   })
-  @Roles(UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Delete(":id")
   async remove(@Param("id", ParseIntPipe) id: number) {
     return await this.attendancesService.remove(id);

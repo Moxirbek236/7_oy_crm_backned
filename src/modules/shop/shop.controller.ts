@@ -13,7 +13,7 @@ export class ShopController {
   constructor(private readonly shopService: ShopService) {}
 
   @ApiOperation({ summary: 'Barcha uchun - Get all active products' })
-  @Roles(UserRole.STUDENT, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Roles(UserRole.CREATOR, UserRole.STUDENT, UserRole.ADMIN, UserRole.SUPERADMIN)
   @Get()
   getAllProducts() {
     return this.shopService.getAllProducts();
@@ -34,14 +34,14 @@ export class ShopController {
   }
 
   @ApiOperation({ summary: 'Admin - Create product' })
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Roles(UserRole.CREATOR, UserRole.ADMIN, UserRole.SUPERADMIN)
   @Post()
   createProduct(@Body() data: any) {
     return this.shopService.createProduct(data);
   }
 
   @ApiOperation({ summary: 'Admin - All purchases' })
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Roles(UserRole.CREATOR, UserRole.ADMIN, UserRole.SUPERADMIN)
   @Get('purchases')
   getAllPurchases() {
     return this.shopService.getAllPurchases();
