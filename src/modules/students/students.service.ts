@@ -1005,6 +1005,50 @@ export class StudentsService {
     };
   }
 
+  async getAdminRating(centerId?: number, branchId?: number, courseId?: number, groupId?: number, period?: string) {
+    let whereClause: any = { status: "active" };
+
+    if (groupId) {
+      whereClause.studentGroups = { some: { group_id: groupId } };
+    } else if (courseId) {
+      whereClause.studentGroups = { some: { groups: { course_id: courseId } } };
+    } else if (branchId) {
+      whereClause.branches = { some: { id: branchId } };
+    } else if (centerId) {
+      const branches = await this.prisma.branch.findMany({ where: { center_id: centerId } });
+      const branchIds = branches.map(b => b.id);
+      if (branchIds.length > 0) {
+        whereClause.branches = { some: { id: { in: branchIds } } };
+      }
+    }
+
+    const students = await this.prisma.students.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        full_name: true,
+        xp: true,
+        photo: true,
+        studentGroups: {
+          take: 1,
+          select: { groups: { select: { name: true } } },
+        },
+      },
+      orderBy: { xp: "desc" },
+    });
+
+    const ranking = students.map((s, idx) => ({
+      rank: idx + 1,
+      id: s.id,
+      full_name: s.full_name,
+      xp: s.xp,
+      photo: s.photo,
+      group_name: s.studentGroups[0]?.groups?.name || "-",
+    }));
+
+    return { success: true, data: ranking };
+  }
+
   async getProfile(req) {
     const studentId = req.user?.sub ?? req.user?.id;
     if (!studentId) {

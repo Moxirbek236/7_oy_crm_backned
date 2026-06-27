@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Req, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Req, ParseIntPipe, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { ShopService } from './shop.service';
 import { TokenGuard } from 'src/common/guards/token.guards';
 import { RolesGuard } from 'src/common/guards/role.guards';
@@ -36,7 +39,25 @@ export class ShopController {
   @ApiOperation({ summary: 'Admin - Create product' })
   @Roles(UserRole.CREATOR, UserRole.ADMIN, UserRole.SUPERADMIN)
   @Post()
-  createProduct(@Body() data: any) {
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, uniqueSuffix + extname(file.originalname));
+        },
+      }),
+    }),
+  )
+  createProduct(@Body() data: any, @UploadedFile() file?: Express.Multer.File) {
+    if (file) {
+      data.image = file.filename;
+    }
+    // Parse numeric fields from form-data string
+    if (data.price) data.price = Number(data.price);
+    if (data.stock) data.stock = Number(data.stock);
+    
     return this.shopService.createProduct(data);
   }
 

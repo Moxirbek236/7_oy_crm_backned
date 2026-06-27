@@ -124,6 +124,25 @@ export class StudentsController {
     return this.studentsService.getMyRating(req, filter, period);
   }
 
+  @ApiOperation({ summary: 'ADMIN/SUPERADMIN/CREATOR - Admin rating' })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get("admin/rating")
+  getAdminRating(
+    @Query("centerId") centerId?: string,
+    @Query("branchId") branchId?: string,
+    @Query("courseId") courseId?: string,
+    @Query("groupId") groupId?: string,
+    @Query("period") period?: string
+  ) {
+    return this.studentsService.getAdminRating(
+      centerId ? Number(centerId) : undefined,
+      branchId ? Number(branchId) : undefined,
+      courseId ? Number(courseId) : undefined,
+      groupId ? Number(groupId) : undefined,
+      period
+    );
+  }
+
   @ApiOperation({ summary: `${UserRole.STUDENT} - Group lessons` })
   @Roles(UserRole.STUDENT)
   @Get("my/group/:id/lessons")
