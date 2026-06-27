@@ -107,6 +107,17 @@ export class StudentsController {
     return this.studentsService.getGroupLessons(req, id);
   }
 
+  @ApiOperation({ summary: `${UserRole.STUDENT} - Group lesson details` })
+  @Roles(UserRole.STUDENT)
+  @Get("my/group/:groupId/lesson/:lessonId")
+  getStudentLessonDetails(
+    @Req() req: any,
+    @Param("groupId", ParseIntPipe) groupId: number,
+    @Param("lessonId", ParseIntPipe) lessonId: number,
+  ) {
+    return this.studentsService.getStudentLessonDetails(req, groupId, lessonId);
+  }
+
   @ApiOperation({ summary: `${UserRole.STUDENT} - My profile` })
   @Roles(UserRole.STUDENT)
   @Get("my/profile")

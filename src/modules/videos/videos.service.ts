@@ -58,56 +58,10 @@ export class VideosService {
         const stat = fs.statSync(filePath);
         actualSize = BigInt(stat.size);
 
-        // Read file as Buffer for uploading
-        const fileBuffer = fs.readFileSync(filePath);
-        const ext = path.extname(video_file).toLowerCase();
+        // Mahalliy fayl nomi
+        finalUrl = video_file;
 
-        // Define correct mime type
-        let contentType = "video/mp4";
-        if (ext === ".mov") contentType = "video/quicktime";
-        else if (ext === ".avi") contentType = "video/x-msvideo";
-        else if (ext === ".mkv") contentType = "video/x-matroska";
-
-        // Lazy initialization
-        const supabase = this.getSupabaseClient();
-
-        // Upload to Supabase Storage using 'NajotEdu' bucket
-        const { error: uploadError } = await supabase.storage
-          .from("NajotEdu")
-          .upload(video_file, fileBuffer, {
-            contentType,
-            upsert: true,
-          });
-
-        if (uploadError) {
-          throw new Error(
-            `Supabase Storage yuklash xatosi: ${uploadError.message}`,
-          );
-        }
-
-        // Get public URL
-        const { data: publicUrlData } = supabase.storage
-          .from("NajotEdu")
-          .getPublicUrl(video_file);
-
-        finalUrl = publicUrlData.publicUrl;
-
-        // Delete temporary file from disk immediately to save space
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.error("Vaqtinchalik faylni o'chirishda xatolik:", e);
-        }
       } catch (err) {
-        // Safe clean up in case of any failures
-        try {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        } catch {
-          // ignore clean up error
-        }
-
         // Xatolikni chiroyli ko'rinishda brauzerga qaytarish
         throw new BadRequestException(
           (err as any).message || "Video yuklash jarayonida xatolik yuz berdi",

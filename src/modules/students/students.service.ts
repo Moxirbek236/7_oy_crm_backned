@@ -532,6 +532,122 @@ export class StudentsService {
     };
   }
 
+  async getStudentLessonDetails(req, groupId: number, lessonId: number) {
+    const studentId = req.user?.sub ?? req.user?.id;
+
+    const studentGroup = await this.prisma.studentGroup.findFirst({
+      where: {
+        student_id: studentId,
+        group_id: groupId,
+        status: "active",
+      },
+      include: {
+        students: { select: { id: true, full_name: true } }
+      }
+    });
+
+    if (!studentGroup) {
+      throw new NotFoundException("Group not found or not assigned to you");
+    }
+
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId, group_id: groupId },
+      include: {
+        homeWorks: {
+          include: {
+            homeWorkAnswers: {
+              where: { student_id: studentId },
+              include: {
+                homeWorkResults: {
+                  include: {
+                    techer: { select: { id: true, full_name: true } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!lesson) {
+      throw new NotFoundException("Lesson not found");
+    }
+
+    const hw = lesson.homeWorks?.[0];
+    const answer = hw?.homeWorkAnswers?.[0];
+    const result = answer?.homeWorkResults?.[0];
+
+    const homeworkChats = [];
+
+    if (answer) {
+      let files = [];
+      try {
+        files = JSON.parse(answer.file);
+      } catch {
+        files = answer.file ? [answer.file] : [];
+      }
+      homeworkChats.push({
+        id: answer.id,
+        sender: {
+          id: studentGroup.students.id,
+          firstName: studentGroup.students.full_name,
+          lastName: "",
+          userType: 2
+        },
+        message: answer.title,
+        attachments: files,
+        status: answer.homeworkStatus === 'PENDING' ? 1 : answer.homeworkStatus === 'ACCEPTED' ? 3 : 4,
+        createdAt: answer.created_at,
+        updatedAt: answer.updated_at
+      });
+    }
+
+    if (result) {
+      homeworkChats.push({
+        id: result.id + 100000,
+        sender: {
+          id: result.techer?.id || 0,
+          firstName: result.techer?.full_name || "Teacher",
+          lastName: "",
+          userType: 1
+        },
+        message: result.title,
+        attachments: [],
+        status: 3,
+        score: result.grade,
+        xp: 0,
+        coin: 0,
+        comment: result.title,
+        createdAt: result.created_at,
+        updatedAt: result.created_at
+      });
+    }
+
+    const homeworkInfo = hw ? {
+      id: hw.id,
+      desc: hw.description,
+      attachments: hw.file ? [hw.file] : [],
+      deadline: hw.created_at, 
+      availableForSubmit: true,
+      deadlinePassed: false
+    } : null;
+
+    return {
+      success: true,
+      data: {
+        homeworkChats,
+        homeworkInfo,
+        lesson: {
+          id: lesson.id,
+          name: lesson.topic,
+          date: lesson.date,
+          createdAt: lesson.created_at
+        }
+      }
+    };
+  }
+
   async getGroupTeachers(req, groupId: number) {
     const studentId = req.user?.sub ?? req.user?.id;
 
