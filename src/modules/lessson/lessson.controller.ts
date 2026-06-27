@@ -15,13 +15,14 @@ import {
 import { LesssonService } from "./lessson.service";
 import { CreateLesssonDto } from "./dto/create-lessson.dto";
 import { UpdateLesssonDto } from "./dto/update-lessson.dto";
-import { ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { TokenGuard } from "src/common/guards/token.guards";
 import { RolesGuard } from "src/common/guards/role.guards";
 import { UserRole } from "@prisma/client";
 import { Roles } from "src/common/decorators/roles";
 
-@Controller("lessson")
+@ApiTags("Lesson")
+@Controller("lesson")
 @UseGuards(TokenGuard, RolesGuard)
 @ApiBearerAuth()
 export class LesssonController {
