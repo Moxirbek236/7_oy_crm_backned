@@ -65,15 +65,30 @@ export class DashboardService {
       orderBy: { created_at: "desc" },
       select: { full_name: true, created_at: true },
     });
-    const latestLessons = await this.prisma.lesson.findMany({
-      take: 3,
-      orderBy: { created_at: "desc" },
-      select: {
-        topic: true,
-        created_at: true,
-        groups: { select: { name: true } },
-      },
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const currentWeekDay = days[new Date().getDay()];
+
+    const allActiveGroups = await this.prisma.groups.findMany({
+      where: { status: GroupStatus.active },
     });
+    const groupsToday = allActiveGroups.filter(g => g.week_day.includes(currentWeekDay));
+
+    const todaysAttendances = await this.prisma.attendance.findMany({
+      where: {
+        created_at: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      select: { group_id: true },
+    });
+    
+    const attendedGroupIds = new Set(todaysAttendances.map(a => a.group_id));
+    const missingAttendanceGroups = groupsToday.filter(g => !attendedGroupIds.has(g.id));
+
     const latestHomeworks = await this.prisma.homeWorkAnswer.findMany({
       take: 3,
       orderBy: { created_at: "desc" },
@@ -99,11 +114,11 @@ export class DashboardService {
       });
     });
 
-    latestLessons.forEach((l) => {
+    missingAttendanceGroups.forEach((g) => {
       activities.push({
-        dot: "#7b61ff",
-        text: `"${l.groups?.name || "Guruh"}" guruhiga yangi dars qo'shildi: ${l.topic || "Dars"}`,
-        date: l.created_at,
+        dot: "#ef4444",
+        text: `"${g.name}" guruhi uchun bugungi davomat olinmagan`,
+        date: new Date(),
       });
     });
 
