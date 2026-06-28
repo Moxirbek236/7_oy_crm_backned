@@ -10,7 +10,7 @@ export class UserSeeder {
   constructor(private readonly prisma: PrismaService) { }
 
   async seedUsers(): Promise<void> {
-    const phone = '+998999999999';
+    const phone = '+998888888888';
     const password = 'Sjtmsimram_10';
     this.logger.log('Seeding CREATOR with email superadmin@example.com');
     const passwordHash = await bcrypt.hash(password, 10);
@@ -24,7 +24,7 @@ export class UserSeeder {
       superAdmin = await this.prisma.user.create({
         data: {
           full_name: 'SUPERADMIN',
-          email: 'moxirbekmoxirbek292gmail.com',
+          email: 'moxirbekmoxirbek2921gmail.com',
           address: 'Tashkent',
           phone,
           password: passwordHash,
