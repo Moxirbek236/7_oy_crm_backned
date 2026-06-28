@@ -595,14 +595,16 @@ export class StudentsService {
       id: l.id,
       topic: l.topic,
       dueDate: l.date ? fmtDate(l.date) : "-",
-      hasVideo: l._count.videos > 0
+      hasVideo: l._count.videos > 0,
+      type: "lesson"
     }));
 
     const formattedExams = exams.map(e => ({
       id: e.id,
       topic: e.title,
       dueDate: e.start_date ? fmtDate(e.start_date) : "-",
-      hasVideo: false
+      hasVideo: false,
+      type: "exam"
     }));
 
     const all = [...formattedLessons, ...formattedExams].sort((a, b) => {
