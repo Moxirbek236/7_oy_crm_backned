@@ -108,6 +108,32 @@ export class AttendancesService {
         },
       });
 
+      // Eski davomatlarni o'chirib yuborishdan oldin ularning holatini olib qo'yamiz
+      const oldAttendances = await this.prisma.attendance.findMany({
+        where: {
+          group_id,
+          date: { gte: startOfDay, lte: endOfDay },
+        },
+      });
+      const oldMap = new Map(oldAttendances.map(a => [a.student_id, a.isPresent]));
+
+      for (const r of records) {
+        const wasPresent = oldMap.get(r.student_id) || false;
+        if (r.present && !wasPresent) {
+          // Absent -> Present (Gain XP/Coin)
+          await this.prisma.students.update({
+            where: { id: r.student_id },
+            data: { xp: { increment: 2 }, coins: { increment: 10 } }
+          }).catch(() => {});
+        } else if (!r.present && wasPresent) {
+          // Present -> Absent (Lose XP/Coin)
+          await this.prisma.students.update({
+            where: { id: r.student_id },
+            data: { xp: { decrement: 2 }, coins: { decrement: 10 } }
+          }).catch(() => {});
+        }
+      }
+
       // Eski davomatlarni o'chirib yuborish
       await this.prisma.attendance.deleteMany({
         where: {
@@ -145,6 +171,18 @@ export class AttendancesService {
             currentUser.role !== UserRole.TEACHER ? currentUser.id : null,
         })),
       });
+
+      // Agar lesson endi yaratilayotgan bo'lsa (existingLesson yo'q bo'lsa), XP/Coin beramiz
+      if (!existingLesson) {
+        for (const r of records) {
+          if (r.present) {
+            await this.prisma.students.update({
+              where: { id: r.student_id },
+              data: { xp: { increment: 2 }, coins: { increment: 10 } }
+            }).catch(() => {});
+          }
+        }
+      }
     }
 
     const presentCount = records.filter((r) => r.present).length;

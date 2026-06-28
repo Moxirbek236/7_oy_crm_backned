@@ -479,6 +479,16 @@ export class HomeWorksService {
         ? `Vazifa qabul qilindi (${grade} ball)`
         : `Vazifa qaytarildi (${grade} ball)`;
 
+    // XP va Coin qo'shish
+    if (grade >= 60) {
+      const addedXp = Math.round(((grade - 60) * 9) / 40) + 1;
+      const addedCoins = addedXp * 10;
+      await this.prisma.students.update({
+        where: { id: answer.student_id },
+        data: { xp: { increment: addedXp }, coins: { increment: addedCoins } },
+      }).catch(() => {});
+    }
+
     return { success: true, message, data: { result, status } };
   }
 
