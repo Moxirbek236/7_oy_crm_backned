@@ -25,11 +25,11 @@ export class NotificationService {
             "",
             "Ilova orqali kirish: https://najotedu.softwareengineer.uz/login",
           ].join("\n"),
-        }),
+        }).catch(e => this.logger.error("Welcome email failed to send", e)),
         this.smsService.sendSms(
           phone,
           `NajotEdu kabinetingiz https://najotedu.softwareengineer.uz/login. Login: ${phone} Parol: ${pass}`
-        )
+        ).catch(e => this.logger.error("Welcome SMS failed to send", e))
       ]);
     } catch (err) {
       this.logger.error("Failed to send welcome notifications", err);

@@ -103,7 +103,7 @@ export class TeachersService {
       payload.phone,
       payload.email,
       payload.password,
-    );
+    ).catch(err => {});
 
     return {
       success: true,

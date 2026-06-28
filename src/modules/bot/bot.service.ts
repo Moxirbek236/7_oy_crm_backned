@@ -21,9 +21,12 @@ export class BotService implements OnModuleInit {
     }
 
     try {
-      this.bot = new TelegramBot(token, { polling: true });
-      this.logger.log('Telegram bot started.');
-      this.initializeListeners();
+      const shouldPoll = this.configService.get<string>('TELEGRAM_BOT_POLLING') !== 'false';
+      this.bot = new TelegramBot(token, { polling: shouldPoll } as any);
+      this.logger.log(`Telegram bot started (polling: ${shouldPoll}).`);
+      if (shouldPoll) {
+        this.initializeListeners();
+      }
     } catch (e) {
       this.logger.error('Failed to start telegram bot', e);
     }

@@ -112,7 +112,7 @@ export class StudentsService {
       payload.phone,
       payload.email,
       payload.password,
-    );
+    ).catch(err => {});
     return {
       success: true,
       message: "Student created successfully",

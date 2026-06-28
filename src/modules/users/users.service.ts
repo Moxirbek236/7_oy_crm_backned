@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Logger,
 } from "@nestjs/common";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -14,6 +15,8 @@ import { FindAllUsersDto } from "./dto/query.dto";
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
@@ -60,7 +63,7 @@ export class UsersService {
       payload.phone,
       payload.email,
       payload.password,
-    );
+    ).catch(err => this.logger.error("Welcome email/sms failed to send", err));
 
     return {
       success: true,
