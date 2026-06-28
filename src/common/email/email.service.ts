@@ -4,9 +4,9 @@ import { SendEmailDto } from "./dto/send-email.dto";
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly from = process.env.MAIL_FROM ?? "noreply@yourdomain.com";
+  private readonly from = process.env.MAIL_FROM ?? "moxirbekmoxirbek29@gmail.com";
 
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(private readonly mailerService: MailerService) { }
 
   async sendEmail(dto: SendEmailDto): Promise<void> {
     await this.send(dto);
@@ -27,14 +27,17 @@ export class EmailService {
   private async send(dto: SendEmailDto): Promise<void> {
     try {
       await this.mailerService.sendMail({
-        to:       dto.to,
-        from:     this.from,
-        subject:  dto.subject,
+        to: dto.to,
+        from: this.from,
+        subject: dto.subject,
         template: "index",
-        context:  { text: dto.text },
+        context: { text: dto.text },
       });
     } catch (error) {
-      this.logger.error(`Failed to send email to ${dto.to}: ${error.message}`, error.stack);
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      const masked = dto.to.replace(/(.{2}).+(@.+)/, "$1***$2");
+      this.logger.error(`Failed to send email to ${masked}: ${message}`, stack);
       throw new InternalServerErrorException("Failed to send email. Please try again.");
     }
   }

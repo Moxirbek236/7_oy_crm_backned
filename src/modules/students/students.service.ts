@@ -36,7 +36,7 @@ export class StudentsService {
     if (existUser || existTeacher || existStudent) {
       if (filename) {
         const filePath = join(process.cwd(), "src", "uploads", filename);
-        try { fs.unlinkSync(filePath); } catch {}
+        try { fs.unlinkSync(filePath); } catch { }
       }
       throw new ConflictException("Email or phone already exists in the system");
     }
@@ -72,7 +72,13 @@ export class StudentsService {
     }
 
     const passHash = await bcrypt.hash(payload.password, 10);
-    
+
+    const branchIds = payload.branchIds?.length
+      ? (Array.isArray(payload.branchIds) ? payload.branchIds : [payload.branchIds])
+        .map(Number)
+        .filter(id => !isNaN(id) && id > 0)
+      : [];
+
     try {
       await this.prisma.students.create({
         data: {
@@ -90,8 +96,8 @@ export class StudentsService {
               })),
             }
             : undefined,
-          branches: payload.branchIds?.length
-            ? { connect: payload.branchIds.map(id => ({ id })) }
+          branches: branchIds.length
+            ? { connect: branchIds.map(id => ({ id })) }
             : undefined,
         },
       });
@@ -316,6 +322,12 @@ export class StudentsService {
       ...studentData
     } = payload;
 
+    const branchIds = payload.branchIds
+      ? (Array.isArray(payload.branchIds) ? payload.branchIds : [payload.branchIds])
+        .map(Number)
+        .filter(id => !isNaN(id) && id > 0)
+      : null;
+
     await this.prisma.students.update({
       where: { id },
       data: {
@@ -325,15 +337,15 @@ export class StudentsService {
         birth_date,
         studentGroups: groupIds.length
           ? {
-              deleteMany: {},
-              create: groupIds.map((groupId) => ({
-                group_id: groupId,
-              })),
-            }
+            deleteMany: {},
+            create: groupIds.map((groupId) => ({
+              group_id: groupId,
+            })),
+          }
           : undefined,
-        branches: payload.branchIds
-          ? { set: payload.branchIds.map(id => ({ id })) }
-          : undefined,
+        branches: branchIds?.length
+          ? { set: branchIds.map(id => ({ id })) }
+          : payload.branchIds !== undefined ? { set: [] } : undefined,
       },
     });
     return {
@@ -701,7 +713,7 @@ export class StudentsService {
       id: hw.id,
       desc: hw.description,
       attachments: hw.file ? [hw.file] : [],
-      deadline: deadlineTime, 
+      deadline: deadlineTime,
       availableForSubmit: true,
       deadlinePassed: false
     } : null;

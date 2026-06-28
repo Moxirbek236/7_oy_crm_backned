@@ -104,7 +104,7 @@ export class BotService implements OnModuleInit {
 
   // --- NOTIFICATION METHODS ---
 
-  private async sendMessage(telegramId: string | null | undefined, text: string) {
+   async sendMessage(telegramId: string | null | undefined, text: string) {
     if (!this.bot || !telegramId) return;
     try {
       await this.bot.sendMessage(telegramId, text, { parse_mode: 'HTML' });

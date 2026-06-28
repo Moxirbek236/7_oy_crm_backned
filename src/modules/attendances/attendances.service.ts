@@ -64,20 +64,9 @@ export class AttendancesService {
         );
       }
 
-      // For TODAY: must be within lesson time
+      // For TODAY: Teacher can take attendance anytime during the day
       if (isToday) {
-        const toMin = (t: string) => {
-          const [h, m] = t.split(":").map(Number);
-          return h * 60 + m;
-        };
-        const start = toMin(group.start_time);
-        const end = start + (group.course?.duration_hours ?? 2) * 60;
-        const now = today.getHours() * 60 + today.getMinutes();
-        if (!(start <= now && now <= end)) {
-          throw new BadRequestException(
-            "Dars vaqtidan tashqarida davomat olib bo'lmaydi",
-          );
-        }
+        // No specific time restriction within the day
       }
       // For PAST dates: no time restriction (teacher can take attendance for past lessons)
     }

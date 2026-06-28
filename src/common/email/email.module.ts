@@ -5,8 +5,6 @@ import { HandlebarsAdapter } from "@nestjs-modules/mailer/adapters/handlebars.ad
 import { join } from "path";
 import * as dns from "dns";
 
-// Render va boshqa IPv6 qo'llab-quvvatlamaydigan muhitlarda 
-// SMTP uchun IPv4 ni majburiy qilish:
 dns.setDefaultResultOrder("ipv4first");
 
 @Global()
@@ -16,12 +14,12 @@ dns.setDefaultResultOrder("ipv4first");
       transport: {
         service: "gmail",
         auth: {
-          user: "moxirbekmoxirbek29@gmail.com",
-          pass: "nzzktepfnkjiyrmu",
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS,
         },
       },
       defaults: {
-        from: '"N26 GROUP" abdukhoshim99@gmail.com',
+        from: `"${process.env.MAIL_FROM_NAME ?? "N26 GROUP"}" <${process.env.MAIL_USER}>`,
       },
       template: {
         dir: join(process.cwd(), "src", "templates"),
