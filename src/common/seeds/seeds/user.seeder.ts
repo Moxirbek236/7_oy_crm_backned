@@ -10,9 +10,9 @@ export class UserSeeder {
   constructor(private readonly prisma: PrismaService) { }
 
   async seedUsers(): Promise<void> {
-    const phone = '+998991459686';
+    const phone = '+998999999999';
     const password = 'Sjtmsimram_10';
-    this.logger.log('Seeding SUPERADMIN with email superadmin@example.com');
+    this.logger.log('Seeding CREATOR with email superadmin@example.com');
     const passwordHash = await bcrypt.hash(password, 10);
 
     let superAdmin = await this.prisma.user.findFirst({
@@ -28,16 +28,16 @@ export class UserSeeder {
           address: 'Tashkent',
           phone,
           password: passwordHash,
-          role: UserRole.SUPERADMIN,
+          role: UserRole.CREATOR,
           photo: null,
         },
         select: { id: true },
       });
-      this.logger.log(`SUPERADMIN seed created: ${superAdmin.id}`);
+      this.logger.log(`CREATOR seed created: ${superAdmin.id}`);
     } else {
-      this.logger.log(`SUPERADMIN already exists, skipping creation.`);
+      this.logger.log(`CREATOR already exists, skipping creation.`);
     }
 
-    this.logger.log(`SUPERADMIN seed synced: ${JSON.stringify(superAdmin)}`);
+    this.logger.log(`CREATOR seed synced: ${JSON.stringify(superAdmin)}`);
   }
 }
