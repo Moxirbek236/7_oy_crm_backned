@@ -13,9 +13,14 @@ import { join } from "path";
 import * as fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
+import { BotService } from "../bot/bot.service";
+
 @Injectable()
 export class HomeWorksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private botService: BotService,
+  ) {}
 
   // ─── Helper: Check teacher belongs to group ────────────────────────────────
   private async checkTeacherGroup(teacherId: number, groupId: number) {
@@ -93,6 +98,14 @@ export class HomeWorksService {
             currentUser.role !== UserRole.TEACHER ? currentUser.id : null,
         },
       });
+    }
+
+    // Bot orqali barcha guruh o'quvchilariga xabar yuborish
+    const studentGroups = await this.prisma.studentGroup.findMany({
+      where: { group_id: groupId, status: "active", students: { status: "active" } }
+    });
+    for (const sg of studentGroups) {
+      await this.botService.notifyHomeworkAnnounced(sg.student_id, dto.title);
     }
 
     return { success: true, message: "Uyga vazifa yaratildi", data: hw };
@@ -487,6 +500,9 @@ export class HomeWorksService {
         where: { id: answer.student_id },
         data: { xp: { increment: addedXp }, coins: { increment: addedCoins } },
       }).catch(() => {});
+      await this.botService.notifyHomeworkGraded(answer.student_id, grade, addedXp, addedCoins);
+    } else {
+      await this.botService.notifyHomeworkGraded(answer.student_id, grade, 0, 0);
     }
 
     return { success: true, message, data: { result, status } };

@@ -3,10 +3,14 @@ import { CreateAttendanceDto } from "./dto/create-attendance.dto";
 import { UpdateAttendanceDto } from "./dto/update-attendance.dto";
 import { UserRole } from "@prisma/client";
 import { PrismaService } from "src/core/database/prisma.service";
+import { BotService } from "../bot/bot.service";
 
 @Injectable()
 export class AttendancesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private botService: BotService,
+  ) {}
 
   async create(
     payload: CreateAttendanceDto,
@@ -125,12 +129,14 @@ export class AttendancesService {
             where: { id: r.student_id },
             data: { xp: { increment: 2 }, coins: { increment: 10 } }
           }).catch(() => {});
+          await this.botService.notifyStudentAttendance(r.student_id, true, 2, 10);
         } else if (!r.present && wasPresent) {
           // Present -> Absent (Lose XP/Coin)
           await this.prisma.students.update({
             where: { id: r.student_id },
             data: { xp: { decrement: 2 }, coins: { decrement: 10 } }
           }).catch(() => {});
+          await this.botService.notifyStudentAttendance(r.student_id, false);
         }
       }
 
@@ -181,6 +187,7 @@ export class AttendancesService {
               data: { xp: { increment: 2 }, coins: { increment: 10 } }
             }).catch(() => {});
           }
+          await this.botService.notifyStudentAttendance(r.student_id, r.present, r.present ? 2 : 0, r.present ? 10 : 0);
         }
       }
     }

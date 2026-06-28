@@ -12,9 +12,14 @@ import { join } from "path";
 import * as fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
+import { BotService } from "../bot/bot.service";
+
 @Injectable()
 export class ExamsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly botService: BotService,
+  ) {}
 
   // 1. Yangi imtihon yaratish
   async create(dto: CreateExamDto, currentUser: any, file?: string) {
@@ -44,6 +49,14 @@ export class ExamsService {
         user_id: currentUser.role !== UserRole.TEACHER ? currentUser.id : null,
       },
     });
+
+    const studentGroups = await this.prisma.studentGroup.findMany({
+      where: { group_id: dto.group_id, status: "active", students: { status: "active" } }
+    });
+    for (const sg of studentGroups) {
+      await this.botService.notifyExamAnnounced(sg.student_id, dto.title);
+    }
+
     return { success: true, data: exam };
   }
 

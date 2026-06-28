@@ -10,9 +10,14 @@ import { PrismaService } from "src/core/database/prisma.service";
 import { GroupStatus, Status, StudentStatus, UserRole } from "@prisma/client";
 import { FindAllGroupsDto } from "./dto/query.dto";
 
+import { BotService } from "../bot/bot.service";
+
 @Injectable()
 export class GroupsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private botService: BotService,
+  ) { }
   async create(payload: CreateGroupDto) {
     const timeToMinutes = (time: string) => {
       const [hours, minutes] = time.split(":").map(Number);
@@ -152,6 +157,13 @@ export class GroupsService {
           : undefined,
       },
     });
+
+    if (payload.teachers?.length) {
+      for (const t of payload.teachers) {
+        await this.botService.notifyTeacherNewGroup(t, payload.name);
+      }
+    }
+
     return {
       success: true,
       message: "Group created successfully",
