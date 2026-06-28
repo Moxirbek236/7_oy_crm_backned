@@ -14,12 +14,14 @@ import * as fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
 import { BotService } from "../bot/bot.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class HomeWorksService {
   constructor(
     private prisma: PrismaService,
     private botService: BotService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ─── Helper: Check teacher belongs to group ────────────────────────────────
@@ -515,8 +517,10 @@ export class HomeWorksService {
         data: { xp: { increment: addedXp }, coins: { increment: addedCoins } },
       }).catch(() => {});
       await this.botService.notifyHomeworkGraded(answer.student_id, grade, addedXp, addedCoins);
+      await this.notificationsService.createNotification(answer.student_id, "Uy vazifasi", `Vazifangiz qabul qilindi: ${grade} ball! +${addedXp} XP, +${addedCoins} Coin.`).catch(() => {});
     } else {
       await this.botService.notifyHomeworkGraded(answer.student_id, grade, 0, 0);
+      await this.notificationsService.createNotification(answer.student_id, "Uy vazifasi", `Vazifangiz qaytarildi: ${grade} ball.`).catch(() => {});
     }
 
     return { success: true, message, data: { result, status } };

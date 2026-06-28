@@ -113,19 +113,19 @@ export class StudentsController {
     return this.studentsService.getMyStats(req);
   }
 
-  @ApiOperation({ summary: `${UserRole.STUDENT} - My rating` })
-  @Roles(UserRole.STUDENT)
+  @ApiOperation({ summary: `Get student rating` })
+  @Roles(UserRole.STUDENT, UserRole.TEACHER, UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
   @Get("my/rating")
   getMyRating(
     @Req() req: any,
-    @Query("filter") filter: "group" | "branch" | "center",
-    @Query("period") period: "weekly" | "monthly" | "3month" | "all"
+    @Query("filter") filter?: "group" | "branch" | "center",
+    @Query("period") period?: string
   ) {
     return this.studentsService.getMyRating(req, filter, period);
   }
 
-  @ApiOperation({ summary: 'ADMIN/SUPERADMIN/CREATOR - Admin rating' })
-  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'ADMIN/SUPERADMIN/CREATOR/TEACHER - Admin rating' })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER)
   @Get("admin/rating")
   getAdminRating(
     @Query("centerId") centerId?: string,

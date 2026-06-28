@@ -23,6 +23,7 @@ import { MonitoringModule } from "./modules/monitoring/monitoring.module";
 import { ShopModule } from "./modules/shop/shop.module";
 import { BranchesModule } from "./modules/branches/branches.module";
 import { BotModule } from "./modules/bot/bot.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { BotModule } from "./modules/bot/bot.module";
     ShopModule,
     BranchesModule,
     BotModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

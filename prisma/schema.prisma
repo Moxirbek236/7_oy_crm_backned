@@ -136,6 +136,7 @@ model Students {
   homeWorkAnswers HomeWorkAnswer[]
   examAnswers     ExamAnswer[]
   purchases       Purchase[]
+  notifications   Notification[]
 
   @@index([status])
   @@index([full_name])
@@ -445,4 +446,15 @@ model Purchase {
 
   student    Students @relation(fields: [student_id], references: [id])
   product    Product  @relation(fields: [product_id], references: [id])
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  student_id Int
+  title      String
+  message    String
+  read       Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  student    Students @relation(fields: [student_id], references: [id])
 }

@@ -22,7 +22,7 @@ import { UserRole } from "@prisma/client";
 import { Roles } from "src/common/decorators/roles";
 
 @ApiTags("Lesson")
-@Controller("lesson")
+@Controller("lessons")
 @UseGuards(TokenGuard, RolesGuard)
 @ApiBearerAuth()
 export class LesssonController {

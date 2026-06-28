@@ -4,12 +4,14 @@ import { UpdateAttendanceDto } from "./dto/update-attendance.dto";
 import { UserRole } from "@prisma/client";
 import { PrismaService } from "src/core/database/prisma.service";
 import { BotService } from "../bot/bot.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class AttendancesService {
   constructor(
     private prisma: PrismaService,
     private botService: BotService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -119,6 +121,7 @@ export class AttendancesService {
             data: { xp: { increment: 2 }, coins: { increment: 10 } }
           }).catch(() => {});
           await this.botService.notifyStudentAttendance(r.student_id, true, 2, 10);
+          await this.notificationsService.createNotification(r.student_id, "Davomat", "Darsda qatnashdingiz: +2 XP, +10 Coin!").catch(() => {});
         } else if (!r.present && wasPresent) {
           // Present -> Absent (Lose XP/Coin)
           await this.prisma.students.update({
@@ -126,6 +129,7 @@ export class AttendancesService {
             data: { xp: { decrement: 2 }, coins: { decrement: 10 } }
           }).catch(() => {});
           await this.botService.notifyStudentAttendance(r.student_id, false);
+          await this.notificationsService.createNotification(r.student_id, "Davomat", "Darsda qatnashmadingiz: -2 XP, -10 Coin!").catch(() => {});
         }
       }
 
@@ -175,6 +179,9 @@ export class AttendancesService {
               where: { id: r.student_id },
               data: { xp: { increment: 2 }, coins: { increment: 10 } }
             }).catch(() => {});
+            await this.notificationsService.createNotification(r.student_id, "Davomat", "Darsda qatnashdingiz: +2 XP, +10 Coin!").catch(() => {});
+          } else {
+            await this.notificationsService.createNotification(r.student_id, "Davomat", "Darsda qatnashmadingiz!").catch(() => {});
           }
           await this.botService.notifyStudentAttendance(r.student_id, r.present, r.present ? 2 : 0, r.present ? 10 : 0);
         }

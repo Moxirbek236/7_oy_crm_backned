@@ -1,9 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/core/database/prisma.service';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class ShopService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async getAllProducts() {
     const products = await this.prisma.product.findMany({
@@ -51,6 +56,8 @@ export class ShopService {
         },
       });
     });
+
+    await this.notificationsService.createNotification(studentId, "Do'kon", `Siz "${product.name}" sovg'asini sotib olishga so'rov yubordingiz. Narxi: ${product.price} coin. status: Kutilmoqda.`).catch(() => {});
 
     return {
       success: true,
@@ -104,8 +111,11 @@ export class ShopService {
 
     const updated = await this.prisma.purchase.update({
       where: { id: purchaseId },
-      data: { status: 'COMPLETED' }
+      data: { status: 'COMPLETED' },
+      include: { product: true }
     });
+
+    await this.notificationsService.createNotification(purchase.student_id, "Do'kon", `Sizning "${updated.product?.name || 'sovg\'a'}" buyurtmangiz tasdiqlandi va topshirildi!`).catch(() => {});
 
     return { success: true, message: 'Purchase confirmed', data: updated };
   }
@@ -135,9 +145,12 @@ export class ShopService {
       // Set status to CANCELLED
       return tx.purchase.update({
         where: { id: purchaseId },
-        data: { status: 'CANCELLED' }
+        data: { status: 'CANCELLED' },
+        include: { product: true }
       });
     });
+
+    await this.notificationsService.createNotification(purchase.student_id, "Do'kon", `Sizning "${(updated as any).product?.name || 'sovg\'a'}" buyurtmangiz rad etildi. ${purchase.price} coiningiz qaytarib berildi.`).catch(() => {});
 
     return { success: true, message: 'Purchase cancelled and coins refunded', data: updated };
   }

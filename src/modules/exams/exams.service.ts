@@ -13,12 +13,14 @@ import * as fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
 import { BotService } from "../bot/bot.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class ExamsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly botService: BotService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // 1. Yangi imtihon yaratish
@@ -222,8 +224,10 @@ export class ExamsService {
           data: { xp: { increment: addedXp }, coins: { increment: addedCoins } },
         }).catch(() => {});
         await this.botService.notifyExamGraded(studentId, score, addedXp, addedCoins).catch(() => {});
+        await this.notificationsService.createNotification(studentId, "Imtihon", `Imtihoningiz qabul qilindi: ${score} ball! +${addedXp} XP, +${addedCoins} Coin.`).catch(() => {});
       } else {
         await this.botService.notifyExamGraded(studentId, score, 0, 0).catch(() => {});
+        await this.notificationsService.createNotification(studentId, "Imtihon", `Imtihoningiz qaytarildi: ${score} ball.`).catch(() => {});
       }
 
       return { success: true, data: created, message: "Baho qo'yildi" };
@@ -265,8 +269,10 @@ export class ExamsService {
         data: { xp: { increment: addedXp }, coins: { increment: addedCoins } },
       }).catch(() => {});
       await this.botService.notifyExamGraded(answer.student_id, score, addedXp, addedCoins).catch(() => {});
+      await this.notificationsService.createNotification(answer.student_id, "Imtihon", `Imtihoningiz qabul qilindi: ${score} ball! +${addedXp} XP, +${addedCoins} Coin.`).catch(() => {});
     } else {
       await this.botService.notifyExamGraded(answer.student_id, score, 0, 0).catch(() => {});
+      await this.notificationsService.createNotification(answer.student_id, "Imtihon", `Imtihoningiz qaytarildi: ${score} ball.`).catch(() => {});
     }
 
     return { success: true, data: updated, message: "Baho qo'yildi" };
