@@ -67,4 +67,18 @@ export class ShopController {
   getAllPurchases() {
     return this.shopService.getAllPurchases();
   }
+
+  @ApiOperation({ summary: 'Admin - Confirm purchase' })
+  @Roles(UserRole.CREATOR, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Post('purchases/:id/confirm')
+  confirmPurchase(@Param('id', ParseIntPipe) id: number) {
+    return this.shopService.confirmPurchase(id);
+  }
+
+  @ApiOperation({ summary: 'Admin - Cancel purchase' })
+  @Roles(UserRole.CREATOR, UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Post('purchases/:id/cancel')
+  confirmCancel(@Param('id', ParseIntPipe) id: number) {
+    return this.shopService.cancelPurchase(id);
+  }
 }

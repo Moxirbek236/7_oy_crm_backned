@@ -118,6 +118,37 @@ export class ExamsController {
     );
   }
 
+  @ApiOperation({ summary: "Student imtihon topshiradi (STUDENT, TEACHER, ADMIN)" })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT)
+  @Post(":examId/submit")
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: diskStorage({
+        destination: "./src/uploads",
+        filename: (req, file, cb) => {
+          const ext = file.originalname.split(".").pop();
+          const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+          cb(null, filename);
+        },
+      }),
+    }),
+  )
+  submitExam(
+    @Param("examId", ParseIntPipe) examId: number,
+    @Body() dto: { comment?: string },
+    @Req() req: Request,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const studentId = req["user"]?.sub ?? req["user"]?.id;
+    return this.examsService.submitExam(
+      examId,
+      studentId,
+      dto.comment,
+      file?.filename,
+    );
+  }
+
   @ApiOperation({
     summary: "Imtihon natijalarini e'lon qilish (TEACHER, ADMIN)",
   })

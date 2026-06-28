@@ -92,4 +92,53 @@ export class ShopService {
     });
     return { success: true, data: purchases };
   }
+
+  async confirmPurchase(purchaseId: number) {
+    const purchase = await this.prisma.purchase.findUnique({
+      where: { id: purchaseId },
+    });
+    if (!purchase) throw new NotFoundException('Purchase not found');
+    if (purchase.status !== 'PENDING') {
+      throw new BadRequestException(`Purchase status is already ${purchase.status}`);
+    }
+
+    const updated = await this.prisma.purchase.update({
+      where: { id: purchaseId },
+      data: { status: 'COMPLETED' }
+    });
+
+    return { success: true, message: 'Purchase confirmed', data: updated };
+  }
+
+  async cancelPurchase(purchaseId: number) {
+    const purchase = await this.prisma.purchase.findUnique({
+      where: { id: purchaseId },
+    });
+    if (!purchase) throw new NotFoundException('Purchase not found');
+    if (purchase.status !== 'PENDING') {
+      throw new BadRequestException(`Purchase status is already ${purchase.status}`);
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Refund student coins
+      await tx.students.update({
+        where: { id: purchase.student_id },
+        data: { coins: { increment: purchase.price } }
+      });
+
+      // Restore product stock
+      await tx.product.update({
+        where: { id: purchase.product_id },
+        data: { stock: { increment: 1 } }
+      });
+
+      // Set status to CANCELLED
+      return tx.purchase.update({
+        where: { id: purchaseId },
+        data: { status: 'CANCELLED' }
+      });
+    });
+
+    return { success: true, message: 'Purchase cancelled and coins refunded', data: updated };
+  }
 }

@@ -37,8 +37,12 @@ export class EskizService implements ISmsService, OnModuleInit {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   async onModuleInit(): Promise<void> {
-    await this.login();
-    this.scheduleTokenRefresh();
+    try {
+      await this.login();
+      this.scheduleTokenRefresh();
+    } catch (err) {
+      this.logger.error("Failed to initialize Eskiz SMS service during bootstrap", err);
+    }
   }
 
   // ── Public ─────────────────────────────────────────────────────────────────

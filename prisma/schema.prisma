@@ -73,7 +73,7 @@ model Center {
 
 model Branch {
   id         Int      @id @default(autoincrement())
-  center_id  Int      @default(1)
+  center_id  Int
   name       String
   address    String?
   status     Status   @default(active)
@@ -440,6 +440,7 @@ model Purchase {
   student_id Int
   product_id Int
   price      Int      // Narxi sotib olingan vaqtda
+  status     String   @default("PENDING")
   created_at DateTime @default(now())
 
   student    Students @relation(fields: [student_id], references: [id])

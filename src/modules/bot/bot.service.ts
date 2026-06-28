@@ -157,6 +157,15 @@ export class BotService implements OnModuleInit {
     );
   }
 
+  async notifyExamGraded(studentId: number, score: number, xp: number, coins: number) {
+    const student = await this.prisma.students.findUnique({ where: { id: studentId } });
+    if (!student || !student.telegram_id) return;
+    await this.sendMessage(
+      student.telegram_id,
+      `✅ <b>Imtihon baholandi</b>\nSizning imtihon javobingiz tekshirildi.\nBall: ${score}\nSiz +${xp} XP va +${coins} Coin oldingiz!`
+    );
+  }
+
   async notifyTeacherNewStudent(teacherId: number, studentName: string, groupName: string) {
     const teacher = await this.prisma.teachers.findUnique({ where: { id: teacherId } });
     if (!teacher || !teacher.telegram_id) return;

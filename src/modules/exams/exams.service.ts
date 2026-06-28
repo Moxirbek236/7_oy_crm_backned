@@ -213,6 +213,19 @@ export class ExamsService {
           checked_at: new Date(),
         },
       });
+
+      if (score >= 60) {
+        const addedXp = Math.round(((score - 60) * 9) / 40) + 1;
+        const addedCoins = addedXp * 10;
+        await this.prisma.students.update({
+          where: { id: studentId },
+          data: { xp: { increment: addedXp }, coins: { increment: addedCoins } },
+        }).catch(() => {});
+        await this.botService.notifyExamGraded(studentId, score, addedXp, addedCoins).catch(() => {});
+      } else {
+        await this.botService.notifyExamGraded(studentId, score, 0, 0).catch(() => {});
+      }
+
       return { success: true, data: created, message: "Baho qo'yildi" };
     }
 
@@ -244,7 +257,80 @@ export class ExamsService {
       },
     });
 
+    if (score >= 60) {
+      const addedXp = Math.round(((score - 60) * 9) / 40) + 1;
+      const addedCoins = addedXp * 10;
+      await this.prisma.students.update({
+        where: { id: answer.student_id },
+        data: { xp: { increment: addedXp }, coins: { increment: addedCoins } },
+      }).catch(() => {});
+      await this.botService.notifyExamGraded(answer.student_id, score, addedXp, addedCoins).catch(() => {});
+    } else {
+      await this.botService.notifyExamGraded(answer.student_id, score, 0, 0).catch(() => {});
+    }
+
     return { success: true, data: updated, message: "Baho qo'yildi" };
+  }
+
+  // Student submits exam
+  async submitExam(
+    examId: number,
+    studentId: number,
+    comment: string,
+    file?: string,
+  ) {
+    const exam = await this.prisma.exam.findUnique({ where: { id: examId } });
+    if (!exam) throw new NotFoundException("Imtihon topilmadi");
+
+    // Check student is in this group
+    const sg = await this.prisma.studentGroup.findFirst({
+      where: {
+        student_id: studentId,
+        group_id: exam.group_id,
+        status: "active",
+        students: { status: "active" },
+      },
+    });
+    if (!sg) throw new ForbiddenException("Siz bu guruhga tegishli emassiz");
+
+    // Check if already submitted
+    const existing = await this.prisma.examAnswer.findFirst({
+      where: { exam_id: examId, student_id: studentId },
+    });
+
+    let uploadedFile = file;
+    if (file) {
+      uploadedFile = await uploadToSupabase(file);
+    }
+
+    if (existing) {
+      // Update existing
+      const updated = await this.prisma.examAnswer.update({
+        where: { id: existing.id },
+        data: {
+          title: comment || "Imtihon topshirildi",
+          file: uploadedFile || undefined,
+          examStatus: ExamStatus.PENDING,
+        },
+      });
+      return {
+        success: true,
+        message: "Imtihon javobi yangilandi",
+        data: updated,
+      };
+    }
+
+    const answer = await this.prisma.examAnswer.create({
+      data: {
+        student_id: studentId,
+        exam_id: examId,
+        title: comment || "Imtihon topshirildi",
+        file: uploadedFile || null,
+        examStatus: ExamStatus.PENDING,
+      },
+    });
+
+    return { success: true, message: "Imtihon topshirildi", data: answer };
   }
 
   // 5. Imtihon natijalarini hammaga e'lon qilish

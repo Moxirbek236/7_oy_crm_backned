@@ -183,6 +183,7 @@ export class StudentsService {
         address: true,
         birth_date: true,
         status: true,
+        telegram_id: true,
         created_at: true,
         studentGroups: {
           select: {
@@ -726,6 +727,7 @@ export class StudentsService {
         lesson: {
           id: lesson.id,
           name: lesson.topic,
+          description: lesson.description,
           date: lesson.date,
           createdAt: lesson.created_at
         }
@@ -1002,7 +1004,7 @@ export class StudentsService {
       orderBy: { xp: "desc" },
     });
 
-    const ranking = students.map((s, idx) => ({
+    let ranking = students.map((s, idx) => ({
       rank: idx + 1,
       id: s.id,
       full_name: s.full_name,
@@ -1011,10 +1013,103 @@ export class StudentsService {
       group_name: s.studentGroups[0]?.groups?.name || "-",
     }));
 
+    if (period && period !== "all") {
+      const studentIds = students.map(s => s.id);
+      const periodXpMap = await this.getPeriodXpMap(studentIds, period);
+      ranking = students.map(s => ({
+        id: s.id,
+        full_name: s.full_name,
+        xp: periodXpMap[s.id] || 0,
+        photo: s.photo,
+        group_name: s.studentGroups[0]?.groups?.name || "-",
+      })).sort((a, b) => b.xp - a.xp)
+         .map((item, idx) => ({ ...item, rank: idx + 1 }));
+    }
+
     return {
       success: true,
       data: ranking,
     };
+  }
+
+  private async getPeriodXpMap(studentIds: number[], period?: string): Promise<Record<number, number>> {
+    const xpMap: Record<number, number> = {};
+    studentIds.forEach(id => {
+      xpMap[id] = 0;
+    });
+
+    if (!period || period === "all" || studentIds.length === 0) {
+      return xpMap;
+    }
+
+    let sinceDate = new Date();
+    if (period === "weekly") {
+      sinceDate.setDate(sinceDate.getDate() - 7);
+    } else if (period === "monthly") {
+      sinceDate.setMonth(sinceDate.getMonth() - 1);
+    } else if (period === "3month") {
+      sinceDate.setMonth(sinceDate.getMonth() - 3);
+    } else {
+      return xpMap;
+    }
+
+    // 1. Attendance XP: 2 XP per Present attendance
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        student_id: { in: studentIds },
+        isPresent: true,
+        created_at: { gte: sinceDate }
+      },
+      select: { student_id: true }
+    });
+    attendances.forEach(att => {
+      if (xpMap[att.student_id] !== undefined) {
+        xpMap[att.student_id] += 2;
+      }
+    });
+
+    // 2. Homework XP: Math.round(((grade - 60) * 9) / 40) + 1
+    const hwResults = await this.prisma.homeWorkResult.findMany({
+      where: {
+        homeWorkAnswers: {
+          student_id: { in: studentIds }
+        },
+        grade: { gte: 60 },
+        created_at: { gte: sinceDate }
+      },
+      select: {
+        grade: true,
+        homeWorkAnswers: { select: { student_id: true } }
+      }
+    });
+    hwResults.forEach(res => {
+      const studentId = res.homeWorkAnswers?.student_id;
+      if (studentId && xpMap[studentId] !== undefined) {
+        const xp = Math.round(((res.grade - 60) * 9) / 40) + 1;
+        xpMap[studentId] += xp;
+      }
+    });
+
+    // 3. Exam XP: Math.round(((score - 60) * 9) / 40) + 1
+    const examAnswers = await this.prisma.examAnswer.findMany({
+      where: {
+        student_id: { in: studentIds },
+        score: { gte: 60 },
+        checked_at: { gte: sinceDate }
+      },
+      select: {
+        student_id: true,
+        score: true
+      }
+    });
+    examAnswers.forEach(ans => {
+      if (xpMap[ans.student_id] !== undefined && ans.score !== null) {
+        const xp = Math.round(((ans.score - 60) * 9) / 40) + 1;
+        xpMap[ans.student_id] += xp;
+      }
+    });
+
+    return xpMap;
   }
 
   async getAdminRating(centerId?: number, branchId?: number, courseId?: number, groupId?: number, period?: string) {
@@ -1049,7 +1144,7 @@ export class StudentsService {
       orderBy: { xp: "desc" },
     });
 
-    const ranking = students.map((s, idx) => ({
+    let ranking = students.map((s, idx) => ({
       rank: idx + 1,
       id: s.id,
       full_name: s.full_name,
@@ -1057,6 +1152,19 @@ export class StudentsService {
       photo: s.photo,
       group_name: s.studentGroups[0]?.groups?.name || "-",
     }));
+
+    if (period && period !== "all") {
+      const studentIds = students.map(s => s.id);
+      const periodXpMap = await this.getPeriodXpMap(studentIds, period);
+      ranking = students.map(s => ({
+        id: s.id,
+        full_name: s.full_name,
+        xp: periodXpMap[s.id] || 0,
+        photo: s.photo,
+        group_name: s.studentGroups[0]?.groups?.name || "-",
+      })).sort((a, b) => b.xp - a.xp)
+         .map((item, idx) => ({ ...item, rank: idx + 1 }));
+    }
 
     return { success: true, data: ranking };
   }

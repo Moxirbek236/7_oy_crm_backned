@@ -317,18 +317,26 @@ export class HomeWorksService {
             submitted_at: answer.created_at,
           });
         } else if (statusStr === "accepted") {
+          const resObj = answer.homeWorkResults?.[0];
+          const grade = resObj?.grade || 0;
+          const xp = grade >= 60 ? Math.round(((grade - 60) * 9) / 40) + 1 : 0;
+          const coin = xp * 10;
           qabulQilinganlar.push({
             student: sg.students,
             answer,
-            result: answer.homeWorkResults?.[0],
+            result: resObj ? { ...resObj, xp, coin } : null,
             status: "accepted",
             submitted_at: answer.created_at,
           });
         } else if (statusStr === "returned") {
+          const resObj = answer.homeWorkResults?.[0];
+          const grade = resObj?.grade || 0;
+          const xp = grade >= 60 ? Math.round(((grade - 60) * 9) / 40) + 1 : 0;
+          const coin = xp * 10;
           qaytarilganlar.push({
             student: sg.students,
             answer,
-            result: answer.homeWorkResults?.[0],
+            result: resObj ? { ...resObj, xp, coin } : null,
             status: "returned",
             submitted_at: answer.created_at,
           });
@@ -436,7 +444,13 @@ export class HomeWorksService {
               created_at: answer.created_at,
             }
           : null,
-        result: result || null,
+        result: result
+          ? {
+              ...result,
+              xp: result.grade >= 60 ? Math.round(((result.grade - 60) * 9) / 40) + 1 : 0,
+              coin: (result.grade >= 60 ? Math.round(((result.grade - 60) * 9) / 40) + 1 : 0) * 10,
+            }
+          : null,
         status,
       },
     };
