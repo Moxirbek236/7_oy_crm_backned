@@ -22,4 +22,13 @@ export class DashboardController {
   getStats() {
     return this.dashboardService.getStats();
   }
+  @ApiOperation({
+    summary:
+      "Dars jadvalini olish (Barcha adminlar uchun)",
+  })
+  @Roles(UserRole.CREATOR, UserRole.SUPERADMIN, UserRole.ADMIN)
+  @Get("timetable")
+  getTimetable() {
+    return this.dashboardService.getTimetable();
+  }
 }

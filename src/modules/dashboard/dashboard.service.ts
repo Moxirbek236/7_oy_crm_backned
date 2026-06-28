@@ -157,4 +157,39 @@ export class DashboardService {
       },
     };
   }
+
+  async getTimetable() {
+    const groupsList = await this.prisma.groups.findMany({
+      where: { status: GroupStatus.active },
+      select: {
+        id: true,
+        name: true,
+        start_time: true,
+        week_day: true,
+        course: { select: { name: true, duration_hours: true } },
+        rooms: { select: { id: true, name: true } },
+      },
+    });
+
+    const colors = ["#026AA2", "#B42318", "#175CD3", "#C11574", "#027A48", "#C4320A", "#475467"];
+
+    const data = groupsList.map((g) => {
+      const color = colors[g.id % colors.length];
+      return {
+        id: g.id,
+        name: g.name,
+        startTime: g.start_time,
+        courseName: g.course?.name || "",
+        durationMinut: g.course?.duration_hours || 90,
+        color: color,
+        room: g.rooms ? { id: g.rooms.id, name: g.rooms.name } : null,
+        week_day: g.week_day,
+      };
+    });
+
+    return {
+      success: true,
+      data,
+    };
+  }
 }
