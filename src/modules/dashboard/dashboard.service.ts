@@ -180,7 +180,7 @@ export class DashboardService {
         name: g.name,
         startTime: g.start_time,
         courseName: g.course?.name || "",
-        durationMinut: g.course?.duration_hours || 90,
+        durationMinut: g.course?.duration_hours * 60,
         color: color,
         room: g.rooms ? { id: g.rooms.id, name: g.rooms.name } : null,
         week_day: g.week_day,
