@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import * as TelegramBot from 'node-telegram-bot-api';
+import TelegramBot from 'node-telegram-bot-api';
 import { PrismaService } from '../../core/database/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
